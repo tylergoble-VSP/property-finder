@@ -37,7 +37,22 @@ from propertyfinder.timeutil import TS_FORMAT, utc_now_iso
 # stops moving wildly when one more sale lands.
 MIN_SEGMENT_N = 8
 
+# The share of real sale prices at which a market stops being an estimate with exceptions
+# and starts being a record with gaps.
+DISCLOSURE_SHARE = 0.5
+
 _EXCLUDED_TYPES = {"LOT", "LAND"}
+
+
+def disclosure_basis(n_disclosed: int, n_total: int) -> str:
+    """Which basis a set of sales rests on, from how many of them published a price.
+
+    One rule, in one place, because every layer above has to agree about it: the baseline
+    labels its percentiles with it, and the hedonic model decides which column to fit on
+    with it. A market with no sales at all is "proxy" — the cautious label, since nothing
+    has yet argued for the confident one.
+    """
+    return "disclosed" if n_total and n_disclosed >= DISCLOSURE_SHARE * n_total else "proxy"
 
 
 def _percentile(sorted_values: list[float], q: float) -> float:
@@ -143,9 +158,7 @@ def compute_sold_baseline(
         window_months=window_months,
         n_solds=len(values),
         price_disclosed=disclosed,
-        # A market is only called disclosed when real prices are the majority of what we
-        # have. Anything less and the surface is mostly estimate, and says so.
-        basis="disclosed" if values and disclosed >= 0.5 * len(values) else "proxy",
+        basis=disclosure_basis(disclosed, len(values)),
         solds_per_month=_velocity(dates),
         window_start=dates[0] if dates else None,
         window_end=dates[-1] if dates else None,
