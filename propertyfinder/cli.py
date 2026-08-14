@@ -1,14 +1,22 @@
-"""Six commands, which is the whole tool at this stage.
+"""Seven commands, which is the whole tool at this stage.
 
     propertyfinder init                    build or update the database
     propertyfinder watches                 list what is configured
     propertyfinder sweep [--watch NAME]    look at the market and say what moved
     propertyfinder report [--watch NAME]   build the HTML report from what sweep stored
+    propertyfinder map [--watch NAME]      the deal map, under its own dated name
     propertyfinder predictions             how wrong the valuation model has been
     propertyfinder enrich [--watch NAME]   pull year built, lot, dues and tax via detail
 
 The original grew to fourteen commands, several of them one-offs that outlived their
 question. This one adds a command when a person needs it, not when a module appears.
+
+`report` has one pipeline and no `--classic` twin. The original ended up with two report
+builders and an arbitration function between them, and the fallback dance was its own
+source of bugs (docs/REBUILD.md, post-mortem item 7). Here the *kind* of page is chosen by
+what the data can support — a watch with a sold companion gets the map, one without gets
+the table — and whichever is built says so on the output line, along with anything it had
+to do without. Passing `--kind` overrides the choice; nothing overrides the honesty.
 
 Two things happen here and nowhere else: the real `httpx.Client` is constructed (the
 client is injected everywhere below this line, which is what lets the whole suite run
@@ -31,6 +39,7 @@ from propertyfinder.adapters import ZillowAdapter
 from propertyfinder.budget import BudgetExceeded, CallBudget
 from propertyfinder.config import Settings, build_engine, load_watch_config
 from propertyfinder.enrich import enrich_watch
+from propertyfinder.mapdata import build_map_payload, sold_companion
 from propertyfinder.pagebuild import render
 from propertyfinder.predictions import calibration_report, format_calibration
 from propertyfinder.reportdata import build_payload
@@ -101,6 +110,22 @@ def cmd_sweep(args, settings: Settings, client: httpx.Client | None) -> int:
 
 
 def cmd_report(args, settings: Settings, _client) -> int:
+    """One report per watch, of whichever kind the data can honestly support."""
+    return _write_pages(args, settings, stem="{name}", kind=args.kind)
+
+
+def cmd_map(args, settings: Settings, _client) -> int:
+    """The deal map, under its own name.
+
+    Separate from `report` only in what it is called on disk. `report` publishes the
+    canonical page for a watch and may reasonably be a table; this always publishes the
+    map, at `<watch>-map.html`, so a link to the map keeps meaning the map even on a day
+    the market has nothing to score.
+    """
+    return _write_pages(args, settings, stem="{name}-map", kind="map")
+
+
+def _write_pages(args, settings: Settings, stem: str, kind: str | None) -> int:
     config = load_watch_config(args.watch_config)
     watches = [w for w in config.watches if not args.watch or w.name == args.watch]
     if not watches:
@@ -117,22 +142,55 @@ def cmd_report(args, settings: Settings, _client) -> int:
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     for watch in watches:
         now = utc_now_iso()
+        chosen, why = _kind_for(config, watch, kind)
         with sessions() as session:
-            payload = build_payload(session, watch, now, config.finance_for(watch))
-        page = render("report.html", payload)
+            page, count, note = _build_page(session, watch, config, now, chosen)
 
         # A dated archive that never changes once written, and a canonical name that
         # always means "the current one" — the same pairing the sweep's own history
         # depends on, one layer up: today's page should be findable by date forever, and
         # by name right now.
-        dated = REPORTS_DIR / f"{watch.name}-{now[:10]}.html"
-        latest = REPORTS_DIR / f"{watch.name}.html"
+        dated = REPORTS_DIR / f"{stem.format(name=watch.name)}-{now[:10]}.html"
+        latest = REPORTS_DIR / f"{stem.format(name=watch.name)}.html"
         dated.write_text(page)
         latest.write_text(page)
         print(
-            f"{watch.name}: {payload['counts']['total']} listing(s) -> {dated} and {latest}"
+            f"{watch.name}: {count} listing(s) · {chosen} report ({why}{note}) "
+            f"-> {dated} and {latest}"
         )
     return 0
+
+
+def _kind_for(config, watch, requested: str | None) -> tuple[str, str]:
+    """(which page to build, why) — decided by the data unless a caller overrode it.
+
+    This is the whole of post-mortem item 7. There is no second report pipeline and no
+    arbitration between two of them: there is one question, "are there sales to value this
+    market against", and the answer picks the page and gets printed either way.
+    """
+    if requested:
+        return requested, f"asked for with --kind {requested}"
+    companion = sold_companion(config, watch)
+    if companion:
+        return "map", f"valued against {companion}"
+    return "table", "no sold companion watch, so nothing here is valued against sales"
+
+
+def _build_page(session, watch, config, now: str, kind: str) -> tuple[str, int, str]:
+    """(the page, how many homes are on it, what it had to do without).
+
+    The note is what makes the degradation visible from a terminal. A map built on a market
+    with too few sales to fit is still a map, and the line that announces it says why it
+    carries no scores — rather than leaving someone to open the file and wonder.
+    """
+    finance = config.finance_for(watch)
+    if kind == "map":
+        payload = build_map_payload(session, watch, config, now)
+        note = "" if payload["model"]["fitted"] else f"; not scored: {payload['model']['reason']}"
+        return render("map.html", payload), payload["counts"]["active"], note
+
+    payload = build_payload(session, watch, now, finance)
+    return render("report.html", payload), payload["counts"]["total"], ""
 
 
 def cmd_enrich(args, settings: Settings, client: httpx.Client | None) -> int:
@@ -199,6 +257,7 @@ COMMANDS = {
     "watches": cmd_watches,
     "sweep": cmd_sweep,
     "report": cmd_report,
+    "map": cmd_map,
     "predictions": cmd_predictions,
     "enrich": cmd_enrich,
 }
@@ -233,6 +292,17 @@ def build_parser() -> argparse.ArgumentParser:
         "report", help="build the HTML report for one watch, or all of them"
     )
     report.add_argument("--watch", help="report only this watch (default: every watch)")
+    report.add_argument(
+        "--kind",
+        choices=("map", "table"),
+        help="which page to build (default: the map where a sold companion watch exists, "
+        "the table where none does)",
+    )
+
+    mapper = subparsers.add_parser(
+        "map", help="build the deal map for one watch, or all of them"
+    )
+    mapper.add_argument("--watch", help="map only this watch (default: every watch)")
 
     subparsers.add_parser(
         "predictions", help="how wrong the valuation model has been, per segment"

@@ -277,16 +277,140 @@ def test_report_with_no_watch_named_covers_every_watch(home):
     assert (home / "reports" / "walsh-aledo-sold.html").exists()
 
 
-def test_report_degrades_gracefully_with_no_sweep_on_record(home):
+def test_report_degrades_gracefully_with_no_sweep_on_record(home, capsys):
     """A person who runs `report` before ever running `sweep` gets an honest empty page,
-    not a crash and not a lecture about running `sweep` first."""
+    not a crash and not a lecture about running `sweep` first. The configured watch has a
+    sold companion, so the page is the map — with nothing on it, and the line saying so."""
     assert main(["report", "--watch", "walsh-aledo"]) == 0
+    out = capsys.readouterr().out
+    assert "0 listing(s) · map report" in out
+    assert "not scored: walsh-aledo-sold holds too few usable sales" in out
+
     page = (home / "reports" / "walsh-aledo.html").read_text()
-    assert '"total":0' in page
+    assert '"active":0' in page and '"fitted":false' in page
 
 
 def test_an_unknown_watch_name_reports_nothing_and_writes_no_files(home, capsys):
     assert main(["report", "--watch", "nowhere"]) == 1
+    assert "no watch named 'nowhere'" in capsys.readouterr().out
+    assert not (home / "reports").exists()
+
+
+# -- one pipeline: the data picks the page, and the line says which and why ------------
+
+
+SOLO_CONFIG = """
+currency: USD
+watches:
+  - name: lonely-market
+    center_address: "2112 Eastus Ln, Aledo, TX 76008"
+    lat: 32.73665
+    lon: -97.55626
+    radius_miles: 2.0
+    listing_status: for_sale
+    queries: ["Aledo, TX 76008"]
+"""
+
+
+def _sold_market(n=26):
+    """A market wide enough in size and price for a hedonic fit to have something to do.
+
+    The rows the rest of this file uses are all one size at one price, which is fine for
+    testing a sweep and useless for testing a regression: every predictor would be
+    constant. These vary, so the model that comes out the far end is a real one.
+    """
+    rows = []
+    for i in range(n):
+        sqft = 1800 + (i % 13) * 150
+        price = 200 * 2400 * (sqft / 2400) ** 0.83 * (1 + 0.05 * ((i % 5) - 2) / 2)
+        row = _row(f"h{i}", round(price))
+        row["sqft"] = sqft
+        row["baths"] = 2 + (i % 3)
+        row["latitude"] = 32.7360 + (i % 7) * 0.001
+        row["longitude"] = -97.5560 + (i % 5) * 0.001
+        rows.append(row)
+    return _market(*rows)
+
+
+def test_report_builds_the_map_when_a_sold_companion_has_sales_to_value_against(home, capsys):
+    client, _ = _client(_sold_market())
+    main(["sweep"], client=client)  # both watches see the same market: 26 for sale, 26 sold
+    capsys.readouterr()
+
+    assert main(["report", "--watch", "walsh-aledo"]) == 0
+    out = capsys.readouterr().out
+    assert "26 listing(s) · map report (valued against walsh-aledo-sold)" in out
+    assert "not scored" not in out
+
+    page = (home / "reports" / "walsh-aledo.html").read_text()
+    assert '"fitted":true' in page
+    assert "Starting point" in page  # the ledger's first line, so scores really reached it
+    assert "Leaflet 1.9.4" in page  # ...and the map came with its own library
+
+
+def test_report_falls_back_to_the_table_where_there_is_no_sold_companion(home, capsys):
+    (home / "solo.yaml").write_text(SOLO_CONFIG)
+    client, _ = _client(_market(_row("111", 500_000)))
+    main(["--watch-config", "solo.yaml", "sweep"], client=client)
+    capsys.readouterr()
+
+    assert main(["--watch-config", "solo.yaml", "report"]) == 0
+    out = capsys.readouterr().out
+    assert "1 listing(s) · table report (no sold companion watch, so nothing here is " \
+           "valued against sales)" in out
+
+    page = (home / "reports" / "lonely-market.html").read_text()
+    assert '"total":1' in page  # the table payload, not the map's
+    assert "Leaflet" not in page  # a table needs no map, so it carries none
+
+
+def test_kind_overrides_what_the_data_would_have_chosen(home, capsys):
+    client, _ = _client(_market(_row("111", 500_000)))
+    main(["sweep", "--watch", "walsh-aledo"], client=client)
+    capsys.readouterr()
+
+    assert main(["report", "--watch", "walsh-aledo", "--kind", "table"]) == 0
+    out = capsys.readouterr().out
+    assert "table report (asked for with --kind table)" in out
+    assert '"total":1' in (home / "reports" / "walsh-aledo.html").read_text()
+
+
+# -- map, under its own name -----------------------------------------------------------
+
+
+def test_map_writes_a_dated_archive_and_a_canonical_latest(home, capsys):
+    client, _ = _client(_market(_row("111", 500_000)))
+    main(["sweep", "--watch", "walsh-aledo"], client=client)
+    capsys.readouterr()
+
+    assert main(["map", "--watch", "walsh-aledo"]) == 0
+    out = capsys.readouterr().out
+    assert "1 listing(s) · map report" in out
+    assert "not scored:" in out  # one sale is not a market, and the line says as much
+
+    dated = list((home / "reports").glob("walsh-aledo-map-*.html"))
+    latest = home / "reports" / "walsh-aledo-map.html"
+    assert len(dated) == 1 and latest.exists()
+    assert dated[0].read_text() == latest.read_text()
+    assert "111 Walsh Ave, Aledo, TX 76008" in latest.read_text()
+
+
+def test_the_map_keeps_its_own_name_even_when_the_report_is_a_table(home, capsys):
+    """`report` may honestly publish a table; a link to the map must still find a map."""
+    (home / "solo.yaml").write_text(SOLO_CONFIG)
+    client, _ = _client(_market(_row("111", 500_000)))
+    main(["--watch-config", "solo.yaml", "sweep"], client=client)
+    capsys.readouterr()
+
+    assert main(["--watch-config", "solo.yaml", "report"]) == 0
+    assert main(["--watch-config", "solo.yaml", "map"]) == 0
+
+    assert "Leaflet" not in (home / "reports" / "lonely-market.html").read_text()
+    assert "Leaflet" in (home / "reports" / "lonely-market-map.html").read_text()
+
+
+def test_map_of_an_unknown_watch_fails_and_writes_nothing(home, capsys):
+    assert main(["map", "--watch", "nowhere"]) == 1
     assert "no watch named 'nowhere'" in capsys.readouterr().out
     assert not (home / "reports").exists()
 

@@ -21,7 +21,8 @@ uv pip install -e ".[stats,dev]"
 python -m pytest -q          # the whole suite runs offline, in seconds
 propertyfinder init          # create the database
 propertyfinder sweep         # costs real API quota — see docs/EXPERT-PLAN.md on budget
-propertyfinder report
+propertyfinder report        # the map where there are sales to value against, else a table
+propertyfinder map           # the map under its own name, whatever the report chose
 ```
 
 Secrets live in `.env` (never committed): `SEARCHAPI_API_KEY`, and optionally
