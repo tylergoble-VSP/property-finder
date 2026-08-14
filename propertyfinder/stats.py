@@ -18,8 +18,19 @@ standard deviations the asking price sits below (or above) that expectation. z a
 outside the market's own noise; that, not a low price per foot, is what "statistically
 underpriced" means.
 
-Two things sit on top of that fit, and both are corrections for what a size-and-shape
-model structurally cannot see.
+A third thing sits on top of the base fit, arriving with the detail engine at Stage 8:
+**the enriched model.** Age and lot size are real predictors a size-only fit cannot see,
+but the detail pull fails about one home in five, so a fit that required them on every
+comp would spend most markets on nothing. Instead a second model is fit *only* when at
+least 60% of the sold comps carry both fields — below that bar a coefficient estimated
+from a handful of enriched rows mixed into a mostly-bare market is noise wearing a
+number — and each home is scored by the richer model when *it* carries both fields, the
+base model otherwise. Partial coverage degrades gracefully rather than gating the
+feature: the day enrichment reaches the bar, homes start getting judged on it one at a
+time, not all at once.
+
+Two more things sit on top of the base fit, and both are corrections for what a
+size-and-shape model structurally cannot see.
 
 **Nearest-neighbour comps** (`knn_comps`) are the appraiser's method, kept deliberately
 independent of the regression: the closest recent sales of similar size, by great-circle
@@ -47,6 +58,7 @@ This is the first module to import the scientific stack. It stays quarantined he
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Iterable
 
 import numpy as np
@@ -55,10 +67,20 @@ import statsmodels.api as sm
 from sklearn.neighbors import NearestNeighbors
 
 from propertyfinder.baseline import disclosure_basis
+from propertyfinder.timeutil import TS_FORMAT, utc_now_iso
 
 # The design. Everything here comes off the search feed, so the model is always available;
-# lot size and age arrive later with the detail engine and join at Stage 8.
+# lot size and age arrive later with the detail engine and join only when coverage earns it.
 BASE_PREDICTORS = ["log_sqft", "beds", "baths", "townhouse"]
+
+# The enriched design: the base predictors plus what the detail engine adds. A comp
+# missing either of these two contributes to the base fit only.
+ENRICHED_PREDICTORS = BASE_PREDICTORS + ["age", "log_lot"]
+
+# The coverage bar the enriched model must clear before it is fit at all. Below this share
+# of comps carrying both year_built and lot_sqft, the extra predictors are noise wearing a
+# number rather than a signal — see the module docstring.
+ENRICHED_COVERAGE_BAR = 0.6
 
 # Below this many complete sales an OLS fit is a curve drawn through noise. Twenty is not
 # generous — it is the point at which four predictors stop being able to fit anything they
@@ -119,6 +141,28 @@ def prepare(rows: Iterable[dict], basis: str = "disclosed") -> list[dict]:
     return out
 
 
+def _with_enriched_columns(rows: list[dict], as_of_year: int) -> list[dict]:
+    """Prepared rows that also carry `age` and `log_lot` — what the detail engine adds.
+
+    Attached rather than imputed: a home the detail pull never reached, or whose one
+    attempt came back empty, simply does not appear here, and the caller falls back to
+    the base model for it. `age` is measured against `as_of_year` rather than the sale
+    date — a home is judged on how old it is *now*, at the moment someone is deciding
+    whether to buy it, which is also why the same reference year travels with the model
+    from `fit()` to `expected()` rather than being recomputed against whatever day a
+    report happens to run.
+    """
+    out: list[dict] = []
+    for row in rows:
+        year_built, lot = row.get("year_built"), row.get("lot_sqft")
+        if not year_built or not lot or lot <= 0:
+            continue
+        out.append(
+            {**row, "age": float(as_of_year - year_built), "log_lot": float(np.log(lot))}
+        )
+    return out
+
+
 @dataclass(frozen=True)
 class Expectation:
     """One home, judged against the market's own fitted surface."""
@@ -129,6 +173,7 @@ class Expectation:
     hi: float  # and high side
     z: float  # standardised residual: negative means listed below expectation
     basis: str  # "disclosed" | "proxy" — inherited from the sales it was fitted on
+    model: str = "base"  # "base" | "enriched" — which surface produced this expectation
     location_pct: float = 0.0  # what nearby sales add to, or take off, the size model
     location_comps: int = 0  # how many sales the location figure rests on
 
@@ -152,11 +197,17 @@ class HedonicModel:
     r2: float
     n: int
     basis: str
+    as_of_year: int = 0  # the calendar year `age` is measured against — frozen at fit time
     # The location field: a haversine nearest-neighbour index over the sold comps, and the
     # fit's residual at each of them. Absent on a market too small or too tightly clustered
     # for the smoothing to mean anything, in which case the adjustment is simply zero.
     location_index: object = None
     location_residuals: object = None
+    # The enriched fit: age and lot size added to the base predictors, present only when
+    # coverage cleared ENRICHED_COVERAGE_BAR. None means "score every home on the base
+    # model" — not a weaker enriched model, no enriched model at all.
+    enriched_result: object = None
+    enriched_sigma: float = 0.0
 
     @classmethod
     def fit(
@@ -164,12 +215,15 @@ class HedonicModel:
         sold_rows: list[dict],
         basis: str | None = None,
         min_comps: int = MIN_COMPS,
+        now_iso: str | None = None,
     ) -> "HedonicModel | None":
         """Fit on closed sales. Returns None when there are too few to fit honestly.
 
         `basis` is detected from the sales themselves unless forced: a market where most
         sales published a price is fitted on prices, and one where they did not is fitted
-        on the re-anchored estimate and says so for the rest of its life.
+        on the re-anchored estimate and says so for the rest of its life. `now_iso` fixes
+        the year `age` is measured against — defaulting to today, overridable so a test
+        (or a report re-run against yesterday's snapshot) never depends on the calendar.
         """
         rows = list(sold_rows)
         if basis is None:
@@ -179,6 +233,8 @@ class HedonicModel:
         homes = prepare(rows, basis)
         if len(homes) < min_comps:
             return None
+
+        as_of_year = datetime.strptime(now_iso or utc_now_iso(), TS_FORMAT).year
 
         frame = pd.DataFrame(homes)
         # has_constant="add" forces the intercept even when a predictor is constant across
@@ -193,9 +249,31 @@ class HedonicModel:
             r2=float(result.rsquared),
             n=len(homes),
             basis=basis,
+            as_of_year=as_of_year,
         )
         model._build_location_field(homes)
+        model._build_enriched_model(homes)
         return model
+
+    def _build_enriched_model(self, homes: list[dict]) -> None:
+        """Fit the second surface — age and lot size added — when coverage earns it.
+
+        Below ENRICHED_COVERAGE_BAR the extra predictors are not fit at all: a
+        coefficient estimated from a handful of enriched rows swimming in an otherwise
+        bare comp set would be noise wearing a number, and there would be no honest way
+        to tell a reader which comps it actually rested on. `expected()` falls back to
+        the base model for every home when this method leaves `enriched_result` unset.
+        """
+        enriched = _with_enriched_columns(homes, self.as_of_year)
+        if not homes or len(enriched) / len(homes) < ENRICHED_COVERAGE_BAR:
+            return
+        if len(enriched) < MIN_COMPS:
+            return  # the richer model needs at least as many usable rows as the plain one
+        frame = pd.DataFrame(enriched)
+        design = sm.add_constant(frame[ENRICHED_PREDICTORS], has_constant="add")
+        result = sm.OLS(np.log(frame["px"].to_numpy()), design).fit()
+        self.enriched_result = result
+        self.enriched_sigma = float(np.sqrt(result.scale))
 
     def _build_location_field(self, homes: list[dict]) -> None:
         """Index the fit's own residuals by where the sale happened.
@@ -237,11 +315,15 @@ class HedonicModel:
         return max(-LOCATION_CAP, min(LOCATION_CAP, adjustment)), int(len(indices[0]))
 
     def log_expected(self, home: dict) -> float:
-        """The fitted log price for one prepared row."""
+        """The base model's fitted log price for one prepared row."""
+        return self._predict(self.result, self.predictors, home)
+
+    @staticmethod
+    def _predict(result, predictors: list[str], home: dict) -> float:
         design = sm.add_constant(
-            pd.DataFrame([{k: home[k] for k in self.predictors}]), has_constant="add"
-        )[["const"] + self.predictors]
-        return float(np.asarray(self.result.predict(design))[0])
+            pd.DataFrame([{k: home[k] for k in predictors}]), has_constant="add"
+        )[["const"] + predictors]
+        return float(np.asarray(result.predict(design))[0])
 
     def expected(self, home: dict, adjust: bool = True) -> Expectation | None:
         """What this home should fetch, the band around it, and how far off the ask is.
@@ -250,6 +332,13 @@ class HedonicModel:
         returns None when the feed never gave enough of it to ask. The band is one residual
         standard deviation either side, which is roughly the middle two-thirds of how much
         homes here vary from the surface.
+
+        When an enriched model was fit and *this* home carries both `year_built` and
+        `lot_sqft`, it is judged by the richer surface; every other home — including every
+        one of them when coverage never cleared the bar — is judged by the base model.
+        Which one ran is on `Expectation.model`, so a reader can tell "the sold comps here
+        agree, and this one had lot size and age both" from "this one was scored on size
+        alone".
 
         `adjust` folds in what nearby sales say about this home's pocket, and defaults to
         on because leaving it off is how the original produced pages of false bargains.
@@ -261,7 +350,18 @@ class HedonicModel:
             return None
         row = prepared[0]
 
-        log_expected = self.log_expected(row)
+        enriched_row = (
+            _with_enriched_columns([row], self.as_of_year) if self.enriched_result is not None else []
+        )
+        if enriched_row:
+            log_expected = self._predict(self.enriched_result, ENRICHED_PREDICTORS, enriched_row[0])
+            sigma = self.enriched_sigma
+            model_used = "enriched"
+        else:
+            log_expected = self.log_expected(row)
+            sigma = self.sigma
+            model_used = "base"
+
         location, comps = (
             self.location_adjustment(row.get("lat"), row.get("lon")) if adjust else (0.0, 0)
         )
@@ -269,10 +369,11 @@ class HedonicModel:
         return Expectation(
             price=row["px"],
             expected=float(np.exp(log_expected)),
-            lo=float(np.exp(log_expected - self.sigma)),
-            hi=float(np.exp(log_expected + self.sigma)),
-            z=float((np.log(row["px"]) - log_expected) / self.sigma),
+            lo=float(np.exp(log_expected - sigma)),
+            hi=float(np.exp(log_expected + sigma)),
+            z=float((np.log(row["px"]) - log_expected) / sigma),
             basis=self.basis,
+            model=model_used,
             location_pct=float(np.expm1(location) * 100) if comps else 0.0,
             location_comps=comps,
         )
@@ -299,6 +400,11 @@ class HedonicModel:
             lines.append(
                 "What nearby sales fetch is added on top, so a home on ordinary streets is "
                 "not mistaken for a bargain against a market that includes a premium pocket."
+            )
+        if self.enriched_result is not None:
+            lines.append(
+                "Age and lot size join the fit for homes the detail engine reached; the "
+                "rest are judged on size, beds and baths alone."
             )
         lines.append(
             "Fitted on real disclosed sale prices."

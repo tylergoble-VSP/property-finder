@@ -312,3 +312,93 @@ def test_a_market_too_small_to_locate_anything_simply_does_not_adjust():
 def test_a_home_with_no_coordinates_is_judged_by_size_alone():
     model = HedonicModel.fit(two_pocket_market())
     assert model.location_adjustment(None, None) == (0.0, 0)
+
+
+# -- the enriched model: age and lot size, only when coverage earns it --------------------
+
+AS_OF = "2026-01-01T00:00:00Z"  # fixed, so a synthetic "age" never drifts with the calendar
+
+
+def priced_with_age_and_lot(sqft, baths, year_built, lot_sqft,
+                             elasticity=0.83, bath_premium=0.04,
+                             age_effect=-0.006, lot_effect=0.06, as_of_year=2026):
+    """The surface `synthetic_market_with_coverage` obeys: the same size/bath surface as
+    `priced`, discounted for age and adjusted for lot size — two effects a base model,
+    fit without them, has no way to see."""
+    age = as_of_year - year_built
+    return (
+        priced(sqft, baths, elasticity, bath_premium)
+        * math.exp(age_effect * age)
+        * (lot_sqft / 8000) ** lot_effect
+    )
+
+
+def synthetic_market_with_coverage(n=60, coverage=0.7, noise=0.02):
+    """Sales on the enriched surface; only `coverage` share of them carry year_built and
+    lot_sqft, mimicking the detail engine's own flakiness rather than perfect enrichment."""
+    rows = []
+    for i in range(n):
+        sqft = 1800 + (i % 20) * 120
+        baths = 2.0 + (i % 3)
+        year_built = 1990 + (i % 30)
+        lot_sqft = 6000 + (i % 11) * 500
+        price = priced_with_age_and_lot(sqft, baths, year_built, lot_sqft) * (
+            1 + noise * math.sin(i)
+        )
+        extra = {"year_built": year_built, "lot_sqft": lot_sqft} if i < round(n * coverage) else {}
+        rows.append(
+            home(
+                f"e{i}", price, sqft=sqft, baths=baths,
+                lat=32.74 + (i % 7) * 0.002, lon=-97.57 + (i % 5) * 0.002, **extra,
+            )
+        )
+    return rows
+
+
+def test_enriched_model_fits_when_coverage_clears_the_bar():
+    model = HedonicModel.fit(synthetic_market_with_coverage(coverage=0.7), now_iso=AS_OF)
+    assert model.enriched_result is not None
+    assert model.as_of_year == 2026
+
+
+def test_coverage_below_the_bar_stays_base_only():
+    model = HedonicModel.fit(synthetic_market_with_coverage(coverage=0.4), now_iso=AS_OF)
+    assert model.enriched_result is None
+
+    # even a home the feed described fully is scored by the base model: the market never
+    # earned the richer one, so nothing is judged on it, not even the well-described homes.
+    subject = home(
+        "has-detail", priced_with_age_and_lot(3000, 3, 2015, 9000),
+        sqft=3000, year_built=2015, lot_sqft=9000,
+    )
+    assert model.expected(subject).model == "base"
+
+
+def test_an_enriched_row_is_scored_by_the_richer_model_a_bare_one_by_the_base_model():
+    model = HedonicModel.fit(synthetic_market_with_coverage(coverage=0.7), now_iso=AS_OF)
+    assert model.enriched_result is not None
+
+    fair_price = priced_with_age_and_lot(3000, 3, 2015, 9000)
+    with_detail = model.expected(
+        home("has-detail", fair_price, sqft=3000, year_built=2015, lot_sqft=9000)
+    )
+    without_detail = model.expected(home("no-detail", fair_price, sqft=3000))
+
+    assert with_detail.model == "enriched"
+    assert without_detail.model == "base"
+
+
+def test_a_home_missing_either_enriched_field_still_falls_back_to_base():
+    model = HedonicModel.fit(synthetic_market_with_coverage(coverage=0.7), now_iso=AS_OF)
+    only_year = home("y", 500_000, sqft=3000, year_built=2015)  # no lot_sqft
+    only_lot = home("l", 500_000, sqft=3000, lot_sqft=9000)  # no year_built
+    assert model.expected(only_year).model == "base"
+    assert model.expected(only_lot).model == "base"
+
+
+def test_plain_english_mentions_the_enriched_model_only_when_it_exists():
+    enriched = HedonicModel.fit(synthetic_market_with_coverage(coverage=0.7), now_iso=AS_OF)
+    base_only = HedonicModel.fit(synthetic_market_with_coverage(coverage=0.4), now_iso=AS_OF)
+
+    assert any("Age and lot size join the fit" in line for line in enriched.plain_english())
+    assert not any("Age and lot size join the fit" in line for line in base_only.plain_english())
