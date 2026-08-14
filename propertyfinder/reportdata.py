@@ -16,6 +16,10 @@ computed over whatever values are actually present, never padded with a guess.
 "Listings" means homes seen in the *most recent* sweep this watch has on record — a home
 whose newest observation predates that sweep has left the market, and belongs to the
 movement strip's "gone" bucket, not a table of things still for sale.
+
+The `movement` block is `store.sweep_changes` verbatim — this module does no diffing of
+its own. History is the product, and the payload's job is to hand the page whatever the
+store already knows how to say about it.
 """
 from __future__ import annotations
 
@@ -25,7 +29,7 @@ from collections.abc import Iterable
 from sqlalchemy.orm import Session
 
 from propertyfinder.config import Watch
-from propertyfinder.store import latest_snapshot_rows
+from propertyfinder.store import latest_snapshot_rows, sweep_changes
 
 
 def build_payload(session: Session, watch: Watch, generated_ts: str) -> dict:
@@ -52,6 +56,7 @@ def build_payload(session: Session, watch: Watch, generated_ts: str) -> dict:
             "days_on_market": _median(r["days_on_market"] for r in listings),
         },
         "listings": listings,
+        "movement": sweep_changes(session, watch.name),
     }
 
 

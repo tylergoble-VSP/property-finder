@@ -101,6 +101,21 @@ def test_a_home_gone_since_the_last_sweep_is_not_an_active_listing(sessions):
     assert payload["sweep_ts"] == T2
 
 
+def test_the_movement_block_is_the_store_diff_not_a_second_copy_of_it(sessions):
+    """`build_payload` does no diffing of its own — `store.sweep_changes` is proved
+    against every kind of market elsewhere; this only proves the payload actually carries
+    what that function returns, unchanged, under the `movement` key."""
+    _sweep(sessions, T1, [make_listing("111", price=500_000), make_listing("222", price=700_000)])
+    _sweep(sessions, T2, [make_listing("111", price=480_000)])  # cut, and 222 leaves
+
+    with sessions() as s:
+        payload = build_payload(s, WATCH, GENERATED)
+
+    assert payload["movement"]["history_began"] is True
+    assert [c["zpid"] for c in payload["movement"]["cuts"]] == ["111"]
+    assert [g["zpid"] for g in payload["movement"]["gone"]] == ["222"]
+
+
 def test_an_empty_database_is_an_honest_empty_payload(sessions):
     with sessions() as s:
         payload = build_payload(s, WATCH, GENERATED)
@@ -109,6 +124,7 @@ def test_an_empty_database_is_an_honest_empty_payload(sessions):
     assert payload["listings"] == []
     assert payload["counts"] == {"total": 0}
     assert payload["medians"] == {"price": None, "price_per_sqft": None, "days_on_market": None}
+    assert payload["movement"]["history_began"] is False
 
 
 def test_the_payload_snapshots_cleanly_for_a_small_known_market(sessions):
@@ -164,4 +180,12 @@ def test_the_payload_snapshots_cleanly_for_a_small_known_market(sessions):
                 "distance_miles": 1.2,
             }
         ],
+        "movement": {
+            "new": [],
+            "cuts": [],
+            "rises": [],
+            "status_changes": [],
+            "gone": [],
+            "history_began": False,
+        },
     }

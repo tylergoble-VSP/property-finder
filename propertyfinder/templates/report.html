@@ -151,6 +151,13 @@
   function dateOnly(ts) {
     return ts ? ts.slice(0, 10) : "—";
   }
+  function deltaMoney(delta) {
+    // Negative is a cut, positive is a rise — the same sign convention as the sweep
+    // diff this number comes from (a home cut $20,000 arrives here as delta -20000).
+    if (delta === null || delta === undefined || delta === 0) return "—";
+    var abs = "$" + Math.round(Math.abs(delta)).toLocaleString("en-US");
+    return delta < 0 ? ("−" + abs) : ("+" + abs);
+  }
 
   function renderHeader() {
     document.title = payload.watch.name + " — Property Finder";
@@ -180,6 +187,35 @@
       card.appendChild(r); card.appendChild(v); card.appendChild(n);
       el.appendChild(card);
     });
+  }
+
+  function renderMovement() {
+    var el = document.getElementById("pf-movement");
+    var m = payload.movement;
+    el.innerHTML = "";
+    el.className = "movement";
+
+    if (!m.history_began) {
+      el.textContent = "History begins today — this is the first sweep on record.";
+      return;
+    }
+
+    var headline = document.createElement("p");
+    headline.className = "movement-headline";
+    headline.textContent = "Since the last sweep: " + m.new.length + " new · " +
+      m.cuts.length + " cut · " + m.gone.length + " gone";
+    el.appendChild(headline);
+
+    if (m.cuts.length) {
+      var list = document.createElement("ul");
+      list.className = "movement-list";
+      m.cuts.forEach(function (c) {
+        var li = document.createElement("li");
+        li.textContent = (c.address || c.zpid) + ": " + deltaMoney(c.delta);
+        list.appendChild(li);
+      });
+      el.appendChild(list);
+    }
   }
 
   function td(text, cls) {
@@ -258,6 +294,7 @@
   }
 
   renderHeader();
+  renderMovement();
   renderKpis();
   renderRows(payload.listings);
   wireSorting();
