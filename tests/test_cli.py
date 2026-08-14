@@ -10,10 +10,11 @@ under test is the one written three lines above.
 """
 import itertools
 
+import httpx
 import pytest
 from sqlalchemy import create_engine, text
 
-from conftest import RoutedSearchApi
+from conftest import FakeSearchApi, RoutedSearchApi
 
 from propertyfinder import cli, sweep
 from propertyfinder.adapters import ZillowAdapter
@@ -296,3 +297,42 @@ def test_predictions_reports_an_empty_loop_honestly(home, capsys):
     assert main(["predictions"]) == 0
     out = capsys.readouterr().out
     assert "0 resolved" in out and "nothing resolved yet" in out
+
+
+# -- enrich, bounded and budgeted -------------------------------------------------------
+
+
+def test_enrich_pulls_detail_for_whats_in_the_latest_sweep(home, capsys):
+    client, _ = _client(_market(_row("29584711", 674_900)))
+    main(["sweep", "--watch", "walsh-aledo"], client=client)
+    capsys.readouterr()
+
+    detail_client = httpx.Client(transport=FakeSearchApi())
+    assert main(["enrich", "--watch", "walsh-aledo", "--limit", "5"], client=detail_client) == 0
+
+    out = capsys.readouterr().out
+    assert "walsh-aledo: 1 enriched, 0 miss, 4 field(s) filled" in out
+    assert "budget: 1/1000 calls spent (999 left)" in out
+
+
+def test_enrich_of_an_unknown_watch_fails_without_spending_anything(home, capsys):
+    detail_client = httpx.Client(transport=FakeSearchApi())
+    assert main(["enrich", "--watch", "nowhere"], client=detail_client) == 1
+    assert "no watch named 'nowhere'" in capsys.readouterr().out
+
+
+def test_enrich_stops_and_says_so_when_the_budget_runs_out(home, capsys):
+    client, _ = _client(_market(_row("29584711", 674_900), _row("222", 700_000)))
+    main(["sweep", "--watch", "walsh-aledo"], client=client)
+    capsys.readouterr()
+
+    # Both zpids resolve to a real detail body — the ceiling, not a miss, is what stops
+    # the second one, and the assertion below should not depend on which one goes first.
+    detail_client = httpx.Client(
+        transport=FakeSearchApi(details={"29584711": "property_detail", "222": "property_detail"})
+    )
+    assert main(["enrich", "--watch", "walsh-aledo", "--budget", "1"], client=detail_client) == 0
+
+    out = capsys.readouterr().out
+    assert "walsh-aledo: 1 enriched, 0 miss, 4 field(s) filled (stopped: budget exhausted)" in out
+    assert "budget: 1/1 calls spent (0 left)" in out

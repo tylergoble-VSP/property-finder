@@ -59,6 +59,18 @@ class WatchedProperty(Base):
     first_seen: Mapped[str] = mapped_column(Text, nullable=False)
     last_seen: Mapped[str] = mapped_column(Text, nullable=False)
 
+    # -- from the zillow_property detail engine (enrich.py), one call per home ----------
+    #
+    # year_built and lot_sqft sharpen the hedonic model (stats.py); hoa_monthly and
+    # tax_rate feed the cost model once a report wants a home's own numbers instead of
+    # the watch's verified default. `enriched_ts` is stamped on every *attempt*, not
+    # every success — the endpoint fails about one pull in five, and a miss that went
+    # unstamped would be re-hammered forever instead of retried after a stale window.
+    year_built: Mapped[int | None] = mapped_column(Integer)
+    hoa_monthly: Mapped[float | None] = mapped_column(Float)
+    tax_rate: Mapped[float | None] = mapped_column(Float)
+    enriched_ts: Mapped[str | None] = mapped_column(Text)
+
 
 class PropertySnapshot(Base):
     """One home as one watch saw it at one moment.

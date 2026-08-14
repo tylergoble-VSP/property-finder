@@ -1,19 +1,20 @@
-"""Five commands, which is the whole tool at this stage.
+"""Six commands, which is the whole tool at this stage.
 
     propertyfinder init                    build or update the database
     propertyfinder watches                 list what is configured
     propertyfinder sweep [--watch NAME]    look at the market and say what moved
     propertyfinder report [--watch NAME]   build the HTML report from what sweep stored
     propertyfinder predictions             how wrong the valuation model has been
+    propertyfinder enrich [--watch NAME]   pull year built, lot, dues and tax via detail
 
 The original grew to fourteen commands, several of them one-offs that outlived their
 question. This one adds a command when a person needs it, not when a module appears.
 
 Two things happen here and nowhere else: the real `httpx.Client` is constructed (the
 client is injected everywhere below this line, which is what lets the whole suite run
-offline), and the run's call budget is decided. Every sweep is charged against a ceiling,
-and the ceiling is stated out loud when the run ends — a tool that spends a shared
-monthly allowance should never leave anyone guessing what a command cost.
+offline), and the run's call budget is decided. Every sweep or enrichment run is charged
+against a ceiling, and the ceiling is stated out loud when the run ends — a tool that
+spends a shared monthly allowance should never leave anyone guessing what a command cost.
 
 `report` and `predictions` spend nothing — they only read what `sweep` already stored —
 so they take no client and no budget.
@@ -29,6 +30,7 @@ import httpx
 from propertyfinder.adapters import ZillowAdapter
 from propertyfinder.budget import BudgetExceeded, CallBudget
 from propertyfinder.config import Settings, build_engine, load_watch_config
+from propertyfinder.enrich import enrich_watch
 from propertyfinder.pagebuild import render
 from propertyfinder.predictions import calibration_report, format_calibration
 from propertyfinder.reportdata import build_payload
@@ -133,6 +135,38 @@ def cmd_report(args, settings: Settings, _client) -> int:
     return 0
 
 
+def cmd_enrich(args, settings: Settings, client: httpx.Client | None) -> int:
+    config = load_watch_config(args.watch_config)
+    watches = [w for w in config.watches if not args.watch or w.name == args.watch]
+    if not watches:
+        known = ", ".join(w.name for w in config.watches)
+        print(f"no watch named {args.watch!r}. Configured: {known}")
+        return 1
+
+    ceiling = args.budget if args.budget is not None else settings.quota_cap_searchapi_monthly
+    budget = CallBudget(max_calls=ceiling, label=f"enrich of {len(watches)} watch(es)")
+    adapter = ZillowAdapter.from_settings(settings, client=client, budget=budget)
+
+    # Migrations are idempotent, same as `sweep` and `report` — a person who runs
+    # `enrich` first should get an enrichment run, not a lecture about `init`.
+    engine = build_engine(settings)
+    run_migrations(engine)
+    sessions = session_factory(engine)
+
+    for watch in watches:
+        with sessions() as session:
+            summary = enrich_watch(session, adapter, watch, limit=args.limit)
+        note = " (stopped: budget exhausted)" if summary["stopped_by_budget"] else ""
+        print(
+            f"{summary['watch']}: {summary['ok']} enriched, {summary['miss']} miss, "
+            f"{summary['fields_filled']} field(s) filled{note}"
+        )
+        if summary["stopped_by_budget"]:
+            break
+    print(f"budget: {budget}")
+    return 0
+
+
 def cmd_predictions(args, settings: Settings, _client) -> int:
     """Print how wrong the valuation model has been, per segment and per basis.
 
@@ -166,6 +200,7 @@ COMMANDS = {
     "sweep": cmd_sweep,
     "report": cmd_report,
     "predictions": cmd_predictions,
+    "enrich": cmd_enrich,
 }
 
 
@@ -201,6 +236,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "predictions", help="how wrong the valuation model has been, per segment"
+    )
+
+    enrich = subparsers.add_parser(
+        "enrich", help="pull year built, lot size, dues and tax rate for a bounded batch"
+    )
+    enrich.add_argument("--watch", help="enrich only this watch (default: every watch)")
+    enrich.add_argument(
+        "--limit",
+        type=int,
+        default=60,
+        help="the most homes to pull detail for in this run (default: 60)",
+    )
+    enrich.add_argument(
+        "--budget",
+        type=int,
+        help="the most billable calls this run may spend (default: the monthly cap)",
     )
     return parser
 

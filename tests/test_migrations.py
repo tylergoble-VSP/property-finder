@@ -102,6 +102,57 @@ def test_a_failing_step_is_left_unstamped_and_retried_next_run(fresh):
     assert {"step_1", "step_2"} <= set(inspect(fresh).get_table_names())
 
 
+def test_enrichment_columns_land_on_a_brand_new_database(fresh):
+    """m001 *is* `create_all` over today's mapped metadata, and `properties` has carried
+    the enrichment columns in that metadata since this commit — so a fresh database gets
+    them at step 001, and m003 simply finds them already there."""
+    run_migrations(fresh)
+    columns = {c["name"] for c in inspect(fresh).get_columns("properties")}
+    assert {"year_built", "hoa_monthly", "tax_rate", "enriched_ts"} <= columns
+
+
+def test_enrichment_columns_are_added_to_a_database_that_predates_them(fresh):
+    """The database m003 actually exists for: `properties` created before the
+    enrichment columns joined the mapped metadata — impossible to reproduce by calling
+    today's m001 (its `create_all` already carries them), so this builds the old shape
+    by hand.
+    """
+    from propertyfinder.migrations import m003_property_enrichment
+
+    with fresh.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE properties (
+                    zpid TEXT PRIMARY KEY, address TEXT, home_type TEXT, beds REAL,
+                    baths REAL, sqft REAL, lot_sqft REAL, lat REAL, lon REAL, link TEXT,
+                    image_url TEXT, date_sold TEXT,
+                    first_seen TEXT NOT NULL, last_seen TEXT NOT NULL
+                )
+                """
+            )
+        )
+    columns_before = {c["name"] for c in inspect(fresh).get_columns("properties")}
+    assert "enriched_ts" not in columns_before
+
+    with fresh.begin() as conn:
+        m003_property_enrichment.apply(conn)
+    columns_after = {c["name"] for c in inspect(fresh).get_columns("properties")}
+    assert {"year_built", "hoa_monthly", "tax_rate", "enriched_ts"} <= columns_after
+
+
+def test_running_m003_twice_does_not_fail_on_a_duplicate_column(fresh):
+    """SQLite has no `ADD COLUMN IF NOT EXISTS`; the migration guards itself instead."""
+    from propertyfinder.migrations import m003_property_enrichment
+
+    run_migrations(fresh)  # properties exists and already carries these columns
+    with fresh.begin() as conn:
+        m003_property_enrichment.apply(conn)
+        m003_property_enrichment.apply(conn)  # must not raise "duplicate column name"
+    columns = {c["name"] for c in inspect(fresh).get_columns("properties")}
+    assert "enriched_ts" in columns
+
+
 def test_two_migrations_may_not_claim_the_same_version(fresh):
     """A version is an identity. The runner refuses ambiguity rather than picking one,
     and refuses it before touching the database."""
