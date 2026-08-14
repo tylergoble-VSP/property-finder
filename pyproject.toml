@@ -37,3 +37,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["propertyfinder*"]
+
+# `templates/` holds no Python, so `find` alone would leave its HTML behind on install.
+# Naming it here is what lets `pagebuild.render` find its template from an installed
+# wheel and not just from a checkout.
+[tool.setuptools.package-data]
+propertyfinder = ["templates/*.html"]
