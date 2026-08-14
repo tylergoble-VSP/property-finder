@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Property Finder — reports</title>
+<style>
+  :root {
+    --page: #f6f7f6;
+    --surface: #ffffff;
+    --ink: #14171a;
+    --ink-soft: #565f5a;
+    --muted: #838a85;
+    --border: #dfe3de;
+    --accent: #1f6b3a;
+    --shadow: 0 1px 2px rgba(20, 30, 15, .05), 0 8px 24px rgba(20, 30, 15, .06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0e100f;
+      --surface: #181b19;
+      --ink: #f2f4f1;
+      --ink-soft: #c3c9c1;
+      --muted: #8b928a;
+      --border: #2b302b;
+      --accent: #5cc47e;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .35);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--page); }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 16px/1.6 -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 56px 22px 80px; }
+  .eyebrow {
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; margin: 0 0 8px;
+  }
+  h1 { font-size: clamp(24px, 4vw, 32px); margin: 0 0 8px; letter-spacing: -.01em; }
+  p.sub { color: var(--ink-soft); margin: 0 0 34px; max-width: 72ch; }
+  .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+  }
+  .card h2 { font-size: 18px; margin: 0 0 6px; letter-spacing: -.01em; }
+  .card p { color: var(--ink-soft); font-size: 13px; margin: 0 0 14px; }
+  .card a {
+    display: inline-block; background: var(--accent); color: #fff; text-decoration: none;
+    font-weight: 600; font-size: 14px; padding: 8px 14px; border-radius: 8px;
+  }
+  .card a:hover { filter: brightness(1.06); }
+  .empty { color: var(--muted); }
+  footer {
+    margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--border);
+    font-size: 12.5px; color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Property Finder</p>
+  <h1>Market reports</h1>
+  <p class="sub" id="pf-sub">Loading&hellip;</p>
+  <div class="grid" id="pf-grid"></div>
+  <footer id="pf-footer"></footer>
+</div>
+
+<script id="pf-payload" type="application/json">/*__PAYLOAD__*/{}</script>
+<script>
+(function () {
+  "use strict";
+  var payload = JSON.parse(document.getElementById("pf-payload").textContent);
+
+  document.getElementById("pf-sub").textContent = payload.pages.length
+    ? "Every page below needs the site password — this index is not a public directory."
+    : "Nothing is published yet. Run report / map / daily, then rebuild the site.";
+
+  var grid = document.getElementById("pf-grid");
+  if (!payload.pages.length) {
+    grid.innerHTML = '<p class="empty">No private pages are listed in site-manifest.yaml.</p>';
+  }
+  payload.pages.forEach(function (page) {
+    var card = document.createElement("article");
+    card.className = "card";
+    var h2 = document.createElement("h2");
+    h2.textContent = page.title;
+    var a = document.createElement("a");
+    a.href = page.dest;
+    a.textContent = "Open report →";
+    card.appendChild(h2);
+    card.appendChild(a);
+    grid.appendChild(card);
+  });
+
+  document.getElementById("pf-footer").textContent =
+    "Built " + payload.generated_ts + " · data via Zillow (SearchApi.io) · not investment advice.";
+})();
+</script>
+</body>
+</html>

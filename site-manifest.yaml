@@ -1,0 +1,19 @@
+# What gets published, and how visible each page is. `scripts/build_site.py` copies ONLY
+# the paths named here into `site/` — nothing else under reports/, and nothing outside it
+# at all, ever reaches the published folder. `.env` and propertyfinder.db are unpublishable
+# by construction: neither could ever be spelled as a `reports/*.html` path, which is the
+# one shape of thing the copier will accept (docs/REBUILD.md, post-mortem item 8).
+#
+# visibility: private  -> listed on site/index.html, requires SITE_PASSWORD at the edge
+# visibility: public   -> reachable by direct URL only, no password, sent noindex
+#
+# Every page below is `private`: this rebuild ships nothing that needs to be handed to
+# someone without a password (no seller-side comparable-sales page, no purchase dossier —
+# see docs/REBUILD.md, "What the rebuild deliberately leaves out"). `public` exists as a
+# real code path, proven by tests, for whenever that changes.
+- source: reports/walsh-aledo.html
+  dest: walsh-aledo.html
+  visibility: private
+- source: reports/walsh-aledo-map.html
+  dest: walsh-aledo-map.html
+  visibility: private

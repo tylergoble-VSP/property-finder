@@ -46,6 +46,7 @@ include = ["propertyfinder*"]
 [tool.setuptools.package-data]
 propertyfinder = [
     "templates/*.html",
+    "templates/*.js",
     "templates/vendor/*.js",
     "templates/vendor/*.css",
     "data/*.yaml",
