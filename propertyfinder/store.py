@@ -11,6 +11,7 @@ make.
 """
 from __future__ import annotations
 
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -93,3 +94,79 @@ def record_snapshot(
     )
     session.add(row)
     return row
+
+
+# -- the two questions ----------------------------------------------------------------
+#
+# What is true now, and what was true before. Everything downstream — the report, the
+# movement strip, the diff a sweep prints, the calibration loop — is one of these two
+# queries with something layered on top. Both are deliberately plain SQL returning plain
+# dictionaries: no ORM objects escape into the reporting layers, so nothing up there can
+# accidentally hold a live session open or write through a read.
+
+
+def latest_snapshot_rows(session: Session, watch_name: str) -> list[dict]:
+    """The newest observation of each home in a watch, joined to its identity.
+
+    This is what a report renders. `ROW_NUMBER() OVER (PARTITION BY zpid ORDER BY
+    snapshot_ts DESC)` is the "latest per home" idiom the whole tool leans on, and it is
+    correct on a text column only because timestamps are fixed-width UTC.
+    """
+    rows = session.execute(
+        text(
+            """
+            WITH ranked AS (
+              SELECT s.*, ROW_NUMBER() OVER (
+                       PARTITION BY s.zpid
+                       ORDER BY s.snapshot_ts DESC, s.snapshot_id DESC) AS rn
+              FROM snapshots s
+              WHERE s.watch_name = :watch
+            )
+            SELECT r.zpid, r.snapshot_ts, r.listing_status, r.price, r.zestimate,
+                   r.rent_zestimate, r.tax_assessed_value, r.days_on_zillow,
+                   r.status_text, r.distance_miles,
+                   p.address, p.home_type, p.beds, p.baths, p.sqft, p.lot_sqft,
+                   p.lat, p.lon, p.link, p.image_url, p.date_sold,
+                   p.first_seen, p.last_seen
+            FROM ranked r JOIN properties p ON p.zpid = r.zpid
+            WHERE r.rn = 1
+            ORDER BY r.zpid
+            """
+        ),
+        {"watch": watch_name},
+    ).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def previous_snapshot_map(
+    session: Session, watch_name: str, before_ts: str | None = None
+) -> dict[str, dict]:
+    """The baseline a sweep is diffed against: newest observation per home *before* now.
+
+    `before_ts` is exclusive, and it is what makes the diff honest. A sweep computes its
+    baseline with its own timestamp, so the observations it is about to write cannot be
+    compared against themselves — otherwise every home would look unchanged, which is the
+    one answer that is never interesting. Omit it and the function simply means "the
+    latest per home", which is what a caller outside a sweep wants.
+    """
+    clause = "AND snapshot_ts < :before" if before_ts is not None else ""
+    params = {"watch": watch_name} | ({"before": before_ts} if before_ts else {})
+    rows = session.execute(
+        text(
+            f"""
+            WITH ranked AS (
+              SELECT zpid, price, listing_status, status_text, days_on_zillow,
+                     snapshot_ts,
+                     ROW_NUMBER() OVER (
+                       PARTITION BY zpid
+                       ORDER BY snapshot_ts DESC, snapshot_id DESC) AS rn
+              FROM snapshots
+              WHERE watch_name = :watch {clause}
+            )
+            SELECT zpid, price, listing_status, status_text, days_on_zillow, snapshot_ts
+            FROM ranked WHERE rn = 1
+            """
+        ),
+        params,
+    ).mappings().all()
+    return {r["zpid"]: dict(r) for r in rows}
