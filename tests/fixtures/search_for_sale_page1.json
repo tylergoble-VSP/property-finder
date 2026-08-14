@@ -1,0 +1,90 @@
+{
+  "search_metadata": {
+    "id": "search_fixture_for_sale_p1",
+    "status": "Success",
+    "created_at": "2026-08-14T11:02:41Z",
+    "request_time_taken": 3.41,
+    "total_time_taken": 3.62
+  },
+  "search_parameters": {
+    "engine": "zillow",
+    "q": "Aledo, TX 76008",
+    "listing_status": "for_sale",
+    "page": 1
+  },
+  "search_information": {
+    "total_results": 5,
+    "region": {"name": "Aledo, TX", "type": "city", "id": 22682}
+  },
+  "pagination": {"current_page": 1, "total_pages": 2, "next_page": 2},
+  "properties": [
+    {
+      "zpid": 29584711,
+      "address": "1420 Tolleson Dr, Aledo, TX 76008",
+      "street": "1420 Tolleson Dr",
+      "city": "Aledo",
+      "state": "TX",
+      "zipcode": "76008",
+      "price": "$674,900",
+      "extracted_price": 674900,
+      "beds": 4,
+      "baths": 3,
+      "sqft": 3012,
+      "lot_sqft": 8712,
+      "home_type": "SINGLE_FAMILY",
+      "home_status": "FOR_SALE",
+      "status_text": "House for sale",
+      "days_on_zillow": 27,
+      "zestimate": 689400,
+      "rent_zestimate": 3450,
+      "tax_assessed_value": 641230,
+      "latitude": 32.741913,
+      "longitude": -97.560241,
+      "link": "https://www.zillow.com/homedetails/1420-Tolleson-Dr-Aledo-TX-76008/29584711_zpid/",
+      "thumbnail": "https://photos.zillowstatic.com/fp/fixture-tolleson-p.jpg",
+      "broker_name": "Keller Williams Realty",
+      "listing_sub_type": {"is_FSBA": true},
+      "carousel_photos": [{"url": "https://photos.zillowstatic.com/fp/fixture-1.jpg"}]
+    },
+    {
+      "zpid": 2075294181,
+      "address": "Jasmine Plan, Walsh",
+      "street": "Jasmine Plan",
+      "city": "Aledo",
+      "state": "TX",
+      "zipcode": "76008",
+      "price": "From $589,990",
+      "extracted_price": 589990,
+      "beds": 4,
+      "baths": 3.5,
+      "sqft": 3450,
+      "home_type": "SINGLE_FAMILY",
+      "home_status": "FOR_SALE",
+      "status_text": "New construction",
+      "latitude": 32.735004,
+      "longitude": -97.551377,
+      "link": "https://www.zillow.com/community/walsh/2075294181_plid/",
+      "thumbnail": "https://photos.zillowstatic.com/fp/fixture-jasmine-plan.jpg",
+      "builder_name": "Perry Homes",
+      "listing_sub_type": {"is_newHome": true}
+    },
+    {
+      "zpid": 88291043,
+      "address": "10529 Sunrise Ln, Fort Worth, TX 76126",
+      "street": "10529 Sunrise Ln",
+      "city": "Fort Worth",
+      "state": "TX",
+      "zipcode": "76126",
+      "price": "$449,000",
+      "extracted_price": 449000,
+      "beds": 3,
+      "baths": 2,
+      "sqft": 1980,
+      "home_type": "SINGLE_FAMILY",
+      "home_status": "FOR_SALE",
+      "status_text": "House for sale",
+      "days_on_zillow": 4,
+      "link": "https://www.zillow.com/homedetails/10529-Sunrise-Ln-Fort-Worth-TX-76126/88291043_zpid/"
+    }
+  ]
+}

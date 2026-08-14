@@ -1,0 +1,57 @@
+{
+  "search_metadata": {
+    "id": "detail_fixture_29584711",
+    "status": "Success",
+    "created_at": "2026-08-14T11:05:33Z"
+  },
+  "search_parameters": {"engine": "zillow_property", "zpid": "29584711"},
+  "property": {
+    "zpid": 29584711,
+    "address": {
+      "street_address": "1420 Tolleson Dr",
+      "city": "Aledo",
+      "state": "TX",
+      "zipcode": "76008"
+    },
+    "home_type": "SINGLE_FAMILY",
+    "home_status": "FOR_SALE",
+    "price": 674900,
+    "zestimate": 689400,
+    "rent_zestimate": 3450,
+    "year_built": 2021,
+    "lot_size": 8712,
+    "lot_size_units": "square feet",
+    "living_area": 3012,
+    "bedrooms": 4,
+    "bathrooms": 3,
+    "monthly_hoa_fee": 92,
+    "property_tax_rate": 2.34,
+    "subdivision_name": "Walsh Ranch Quail Valley",
+    "description": "Corner lot in Walsh with a study, covered patio and a three-car tandem garage. Fibre to the home and community amenities included in the dues.",
+    "facts_and_features": {
+      "year_built": 2021,
+      "lot_size": "8,712 sqft",
+      "hoa_fee": "$92 monthly",
+      "heating": "Central",
+      "cooling": "Central Air",
+      "parking": "3 Attached spaces"
+    },
+    "price_history": [
+      {"date": "2026-07-18", "event": "Price change", "price": 674900, "price_per_square_foot": 224},
+      {"date": "2026-06-14", "event": "Listed for sale", "price": 699900, "price_per_square_foot": 232},
+      {"date": "2021-11-05", "event": "Sold", "price": 528000, "price_per_square_foot": 175}
+    ],
+    "tax_history": [
+      {"time": "2025", "tax_paid": 15008, "value": 641230},
+      {"time": "2024", "tax_paid": 14611, "value": 622740}
+    ],
+    "schools": [
+      {"name": "Walsh Elementary", "level": "Primary", "rating": 9, "distance": 0.4},
+      {"name": "Aledo High School", "level": "High", "rating": 8, "distance": 3.1}
+    ],
+    "nearby_homes": [
+      {"zpid": 29584799, "address": "612 Bearpaw Trl, Aledo, TX 76008", "price": 524000},
+      {"zpid": 29583220, "address": "805 Overlook Ct, Aledo, TX 76008", "price": 651700}
+    ]
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "search_metadata": {
+    "id": "search_fixture_misresolved",
+    "status": "Success",
+    "created_at": "2026-08-14T11:04:07Z"
+  },
+  "search_parameters": {"engine": "zillow", "q": "76008", "listing_status": "for_sale"},
+  "search_information": {
+    "total_results": 2,
+    "region": {"name": "Minerva, OH", "type": "city", "id": 41011}
+  },
+  "pagination": {"current_page": 1, "total_pages": 1},
+  "properties": [
+    {
+      "zpid": 34122009,
+      "address": "418 E Line St, Minerva, OH 44657",
+      "street": "418 E Line St",
+      "city": "Minerva",
+      "state": "OH",
+      "zipcode": "44657",
+      "price": "$134,900",
+      "extracted_price": 134900,
+      "beds": 3,
+      "baths": 1,
+      "sqft": 1344,
+      "home_type": "SINGLE_FAMILY",
+      "home_status": "FOR_SALE",
+      "status_text": "House for sale",
+      "latitude": 40.729927,
+      "longitude": -81.103661,
+      "link": "https://www.zillow.com/homedetails/418-E-Line-St-Minerva-OH-44657/34122009_zpid/"
+    },
+    {
+      "zpid": 34122117,
+      "address": "701 Valley St, Minerva, OH 44657",
+      "street": "701 Valley St",
+      "city": "Minerva",
+      "state": "OH",
+      "zipcode": "44657",
+      "price": "$99,500",
+      "extracted_price": 99500,
+      "beds": 2,
+      "baths": 1,
+      "sqft": 1010,
+      "home_type": "SINGLE_FAMILY",
+      "home_status": "FOR_SALE",
+      "status_text": "House for sale",
+      "latitude": 40.735511,
+      "longitude": -81.111204,
+      "link": "https://www.zillow.com/homedetails/701-Valley-St-Minerva-OH-44657/34122117_zpid/"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "search_metadata": {
+    "id": "search_fixture_for_sale_p2",
+    "status": "Success",
+    "created_at": "2026-08-14T11:02:46Z"
+  },
+  "search_parameters": {
+    "engine": "zillow",
+    "q": "Aledo, TX 76008",
+    "listing_status": "for_sale",
+    "page": 2
+  },
+  "search_information": {
+    "total_results": 5,
+    "region": {"name": "Aledo, TX", "type": "city", "id": 22682}
+  },
+  "pagination": {"current_page": 2, "total_pages": 2, "previous_page": 1},
+  "properties": [
+    {
+      "zpid": 29584799,
+      "address": "612 Bearpaw Trl, Aledo, TX 76008",
+      "street": "612 Bearpaw Trl",
+      "city": "Aledo",
+      "state": "TX",
+      "zipcode": "76008",
+      "price": "$524,000",
+      "extracted_price": 524000,
+      "beds": 3,
+      "baths": 2,
+      "sqft": 2140,
+      "lot_sqft": 7405,
+      "home_type": "SINGLE_FAMILY",
+      "home_status": "FOR_SALE",
+      "status_text": "House for sale",
+      "days_on_zillow": 91,
+      "zestimate": 531000,
+      "rent_zestimate": 2900,
+      "tax_assessed_value": 498100,
+      "latitude": 32.746602,
+      "longitude": -97.572118,
+      "link": "https://www.zillow.com/homedetails/612-Bearpaw-Trl-Aledo-TX-76008/29584799_zpid/",
+      "thumbnail": "https://photos.zillowstatic.com/fp/fixture-bearpaw.jpg"
+    },
+    {
+      "zpid": 2064118820,
+      "address": "1305 Kestrel Way Unit B, Aledo, TX 76008",
+      "street": "1305 Kestrel Way Unit B",
+      "city": "Aledo",
+      "state": "TX",
+      "zipcode": "76008",
+      "price": "$389,500",
+      "extracted_price": 389500,
+      "beds": 3,
+      "baths": 2.5,
+      "sqft": 1710,
+      "home_type": "TOWNHOUSE",
+      "home_status": "FOR_SALE",
+      "status_text": "Townhouse for sale",
+      "days_on_zillow": 13,
+      "zestimate": 384900,
+      "rent_zestimate": 2350,
+      "latitude": 32.739244,
+      "longitude": -97.548001,
+      "link": "https://www.zillow.com/homedetails/1305-Kestrel-Way-B-Aledo-TX-76008/2064118820_zpid/"
+    }
+  ]
+}

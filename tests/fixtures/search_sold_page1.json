@@ -1,0 +1,84 @@
+{
+  "search_metadata": {
+    "id": "search_fixture_sold_p1",
+    "status": "Success",
+    "created_at": "2026-08-14T11:03:12Z"
+  },
+  "search_parameters": {
+    "engine": "zillow",
+    "q": "Aledo, TX 76008",
+    "listing_status": "sold",
+    "page": 1
+  },
+  "search_information": {
+    "total_results": 3,
+    "region": {"name": "Aledo, TX", "type": "city", "id": 22682}
+  },
+  "pagination": {"current_page": 1, "total_pages": 1},
+  "properties": [
+    {
+      "zpid": 29583220,
+      "address": "805 Overlook Ct, Aledo, TX 76008",
+      "street": "805 Overlook Ct",
+      "city": "Aledo",
+      "state": "TX",
+      "zipcode": "76008",
+      "beds": 4,
+      "baths": 3,
+      "sqft": 2860,
+      "lot_sqft": 9147,
+      "home_type": "SINGLE_FAMILY",
+      "home_status": "RECENTLY_SOLD",
+      "status_text": "Sold",
+      "date_sold": "2026-07-18",
+      "zestimate": 651700,
+      "rent_zestimate": 3300,
+      "tax_assessed_value": 620400,
+      "latitude": 32.743881,
+      "longitude": -97.565002,
+      "link": "https://www.zillow.com/homedetails/805-Overlook-Ct-Aledo-TX-76008/29583220_zpid/"
+    },
+    {
+      "zpid": 29583311,
+      "address": "1112 Cinnamon Teal Dr, Aledo, TX 76008",
+      "street": "1112 Cinnamon Teal Dr",
+      "city": "Aledo",
+      "state": "TX",
+      "zipcode": "76008",
+      "beds": 3,
+      "baths": 2,
+      "sqft": 2015,
+      "lot_sqft": 6970,
+      "home_type": "SINGLE_FAMILY",
+      "home_status": "RECENTLY_SOLD",
+      "status_text": "Sold",
+      "date_sold": "2026-06-29",
+      "zestimate": 486900,
+      "latitude": 32.738117,
+      "longitude": -97.559338,
+      "link": "https://www.zillow.com/homedetails/1112-Cinnamon-Teal-Dr-Aledo-TX-76008/29583311_zpid/"
+    },
+    {
+      "zpid": 29583407,
+      "address": "204 Elmwood Dr, Aledo, TX 76008",
+      "street": "204 Elmwood Dr",
+      "city": "Aledo",
+      "state": "TX",
+      "zipcode": "76008",
+      "price": "$705,000",
+      "extracted_price": 705000,
+      "beds": 5,
+      "baths": 4,
+      "sqft": 3410,
+      "lot_sqft": 10454,
+      "home_type": "SINGLE_FAMILY",
+      "home_status": "RECENTLY_SOLD",
+      "status_text": "Sold",
+      "date_sold": "2026-07-02",
+      "zestimate": 698100,
+      "latitude": 32.750114,
+      "longitude": -97.601772,
+      "link": "https://www.zillow.com/homedetails/204-Elmwood-Dr-Aledo-TX-76008/29583407_zpid/"
+    }
+  ]
+}
