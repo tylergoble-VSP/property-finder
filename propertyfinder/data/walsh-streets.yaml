@@ -1,0 +1,129 @@
+# The Walsh master-planned community's membership rules — the street allowlist is the
+# workhorse signal for resale and spec homes, whose addresses never name "Walsh" itself.
+# A circle wide enough to cover the whole community also catches neighbouring Aledo
+# subdivisions, and Walsh spans something like ninety differently-named streets, so
+# geometry alone cannot isolate it (see propertyfinder/segments.py for the three signals
+# this file backs, cheapest and most reliable first).
+#
+# How to add a street: `collect_in_radius` (propertyfinder/sweep.py) logs a count
+# whenever the subdivision filter drops an in-radius listing. Look up the dropped
+# address, confirm it belongs — spatially interleaved with streets already confirmed as
+# Walsh, not a separate cluster a mile off, and at a $/sqft indistinguishable from the
+# Walsh median — and add its normalized street name below: lowercase, no house number,
+# spelled the way Zillow spells it. Zillow abbreviates inconsistently, so the same street
+# sometimes needs two entries ("roundtree cir" / "roundtree cir e" / "roundtree cir w",
+# "capridge" / "capridge rd").
+#
+# Seeded 2026-07-11 from the first 5-mile sweep: every identifiable community within 1.7
+# miles of the centre (2112 Eastus Ln) is a Walsh variant, two resale anchors 0.3 and 1.3
+# miles apart both report a detail-engine subdivision_name of "Walsh Ranch Quail Vly",
+# and the nearest non-Walsh community (Morningstar) sits 2.5 miles out. A 2026-07-26
+# triage of filter-dropped in-radius listings added "distant rock trl", "crested rdg" and
+# "bending oak st", each within 0.002-0.054 mi of an already-confirmed Walsh home.
+
+key: walsh
+
+# Builder plan-sheet rows name their community directly in the address ("Camborne Plan,
+# Walsh Cottage") — a prefix match against this list is authoritative for new-construction
+# ask-curves, which the street list below cannot reach at all.
+plan_prefixes:
+  - walsh
+
+# Regexes matched against the zillow_property detail engine's own subdivision_name field
+# ("Walsh Ranch Quail Vly") — offline reconciliation of this file only, per the module
+# docstring; that field is absent on roughly four pulls in five and on all new
+# construction, so it is never the live filter.
+subdivision_name_patterns:
+  - '\bwalsh\b'
+
+streets:
+  - balmoral pl
+  - barbette st
+  - bending oak st
+  - blakely way
+  - bluff bend trl
+  - capridge
+  - capridge rd
+  - carnegie dr
+  - cedar brk
+  - cedar brook pl
+  - cedar sage trl
+  - cline ridge rd
+  - crescent st
+  - crested rdg
+  - crested ridge rd
+  - cross oaks pl
+  - distant rock trl
+  - domingo dr
+  - drake st
+  - dunstan dr
+  - eastleigh dr
+  - eastus ln
+  - fallbrook dr
+  - fountainhead cir
+  - game creek trl
+  - gentry dr
+  - grand gable way
+  - green elm rd
+  - green hook rd
+  - green plateau dr
+  - greenside dr
+  - grey bark st
+  - grey birch pl
+  - greymoore cir
+  - heather hills dr
+  - hedgebrook pl
+  - hidden falls dr
+  - laurel ridge rd
+  - leatherleaf ln
+  - leatherstem ln
+  - linklea dr
+  - longspur dr
+  - longvalley dr
+  - makers way
+  - makers way ln
+  - marys ridge rd
+  - meadow cross
+  - meadow cross dr
+  - meadow grass dr
+  - meadow grass ln
+  - mercer ln
+  - narita bnd
+  - narita ln
+  - nouvelle cir
+  - oak trail dr
+  - offerande dr
+  - old weatherford rd
+  - overlook park dr
+  - paladora dr
+  - parkline way
+  - pasco pl
+  - pleasant run ln
+  - prairie holly ln
+  - prairie ridge rd
+  - purple thistle ln
+  - quiet oak pl
+  - red hen ln
+  - rolling heights ln
+  - rolling oaks
+  - rolling oaks dr
+  - roundtree cir
+  - roundtree cir e
+  - roundtree cir w
+  - rozana st
+  - rue ct
+  - sandlin
+  - sandlin dr
+  - sandrellan st
+  - shade tree st
+  - short ridge ln
+  - shumard way
+  - sweetwalk pl
+  - tolleson dr
+  - village walk pl
+  - walsh ave
+  - wayfield ln
+  - wembley bend way
+  - winding creek cir
+  - winding creek trl
+  - winding ridge rd
