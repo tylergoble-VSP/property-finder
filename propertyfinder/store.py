@@ -321,3 +321,50 @@ def sweep_changes(session: Session, watch_name: str) -> dict:
         "gone": gone,
         "history_began": True,
     }
+
+
+def price_change_map(session: Session, watch_name: str) -> dict[str, dict]:
+    """Per home: the very first ask this watch ever recorded, versus the latest.
+
+    Cumulative, not per-event — two cuts and a rise net out to one number, which is the
+    honest answer to "how has this home moved since we first saw it" and the figure that
+    turned out to be the single most persuasive one in every report the original tool
+    shipped ("cut $83,000 since July"). `cut_dollars` is positive when the ask has fallen
+    and negative when it has risen — a home that has only ever risen still belongs here,
+    it just reads as a negative cut.
+
+    A home whose price has never changed is absent from the map entirely. There is
+    nothing to say about it, so nothing is returned, rather than a zero every caller would
+    have to remember to hide.
+    """
+    first_rows = session.execute(
+        text(
+            """
+            WITH ranked AS (
+              SELECT zpid, price, ROW_NUMBER() OVER (
+                       PARTITION BY zpid
+                       ORDER BY snapshot_ts ASC, snapshot_id ASC) AS rn
+              FROM snapshots
+              WHERE watch_name = :watch AND price IS NOT NULL
+            )
+            SELECT zpid, price FROM ranked WHERE rn = 1
+            """
+        ),
+        {"watch": watch_name},
+    ).mappings().all()
+    first_price = {r["zpid"]: r["price"] for r in first_rows}
+    latest_price = {r["zpid"]: r["price"] for r in latest_snapshot_rows(session, watch_name)}
+
+    changes: dict[str, dict] = {}
+    for zpid, first in first_price.items():
+        last = latest_price.get(zpid)
+        if last is None or last == first:
+            continue
+        cut_dollars = first - last
+        changes[zpid] = {
+            "first": first,
+            "last": last,
+            "cut_dollars": cut_dollars,
+            "cut_pct": (cut_dollars / first * 100) if first else None,
+        }
+    return changes

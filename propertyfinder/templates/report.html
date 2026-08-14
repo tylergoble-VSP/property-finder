@@ -123,6 +123,7 @@
           <th data-key="sqft" class="num">Square feet</th>
           <th data-key="price_per_sqft" class="num">$ / square foot</th>
           <th data-key="days_on_market" class="num">Days on market</th>
+          <th data-key="price_cut_dollars" class="num">Cut so far</th>
           <th data-key="distance_miles" class="num">Distance</th>
           <th data-key="status">Status</th>
         </tr>
@@ -250,6 +251,10 @@
       tr.appendChild(td(plain(r.sqft), "num"));
       tr.appendChild(td(money(r.price_per_sqft), "num"));
       tr.appendChild(td(plain(r.days_on_market), "num"));
+      // price_cut_dollars is positive when the ask has fallen (store's convention);
+      // deltaMoney expects negative-is-a-cut, so its sign is flipped going in.
+      tr.appendChild(td(r.price_cut_dollars !== null && r.price_cut_dollars !== undefined
+        ? deltaMoney(-r.price_cut_dollars) : "—", "num"));
       tr.appendChild(td(r.distance_miles !== null && r.distance_miles !== undefined
         ? r.distance_miles.toFixed(1) + " mi" : "—", "num"));
       tr.appendChild(td(r.status || "—"));

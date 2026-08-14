@@ -29,7 +29,7 @@ from collections.abc import Iterable
 from sqlalchemy.orm import Session
 
 from propertyfinder.config import Watch
-from propertyfinder.store import latest_snapshot_rows, sweep_changes
+from propertyfinder.store import latest_snapshot_rows, price_change_map, sweep_changes
 
 
 def build_payload(session: Session, watch: Watch, generated_ts: str) -> dict:
@@ -38,7 +38,11 @@ def build_payload(session: Session, watch: Watch, generated_ts: str) -> dict:
     sweep_ts = max((r["snapshot_ts"] for r in rows), default=None)
     active = [r for r in rows if r["snapshot_ts"] == sweep_ts] if sweep_ts else []
 
-    listings = sorted((_listing_row(r) for r in active), key=_listing_sort_key)
+    cuts_to_date = price_change_map(session, watch.name)
+    listings = sorted(
+        (_listing_row(r, cuts_to_date.get(r["zpid"])) for r in active),
+        key=_listing_sort_key,
+    )
 
     return {
         "watch": {
@@ -60,9 +64,14 @@ def build_payload(session: Session, watch: Watch, generated_ts: str) -> dict:
     }
 
 
-def _listing_row(row: dict) -> dict:
+def _listing_row(row: dict, price_cut: dict | None) -> dict:
     """One home's payload row. `price_per_sqft` is computed here, once, honestly: absent
-    unless both price and square footage are actually known."""
+    unless both price and square footage are actually known.
+
+    `price_cut` comes from `store.price_change_map` — `None` for a home whose ask has
+    never moved, which is exactly what leaves `price_cut_dollars` absent rather than a
+    zero the template would otherwise have to know to hide.
+    """
     price, sqft = row.get("price"), row.get("sqft")
     return {
         "zpid": row["zpid"],
@@ -76,6 +85,9 @@ def _listing_row(row: dict) -> dict:
         "status": row.get("status_text") or row.get("listing_status"),
         "link": row.get("link"),
         "distance_miles": row.get("distance_miles"),
+        "first_price": price_cut["first"] if price_cut else None,
+        "price_cut_dollars": price_cut["cut_dollars"] if price_cut else None,
+        "price_cut_pct": price_cut["cut_pct"] if price_cut else None,
     }
 
 

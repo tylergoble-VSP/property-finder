@@ -4,6 +4,7 @@ Two homes report everything, one is missing its square footage, and one has left
 market since the last sweep. If the payload ever fakes a $ per square foot or lets a
 sold-and-gone home masquerade as an active listing, it is wrong here.
 """
+import pytest
 from conftest import make_listing
 
 from propertyfinder.config import Watch
@@ -116,6 +117,32 @@ def test_the_movement_block_is_the_store_diff_not_a_second_copy_of_it(sessions):
     assert [g["zpid"] for g in payload["movement"]["gone"]] == ["222"]
 
 
+def test_a_listing_carries_its_cumulative_price_cut(sessions):
+    _sweep(sessions, T1, [make_listing("111", price=500_000)])
+    _sweep(sessions, T2, [make_listing("111", price=465_000)])
+
+    with sessions() as s:
+        payload = build_payload(s, WATCH, GENERATED)
+
+    row = payload["listings"][0]
+    assert row["first_price"] == 500_000
+    assert row["price_cut_dollars"] == 35_000
+    assert row["price_cut_pct"] == pytest.approx(7.0)
+
+
+def test_a_listing_that_has_never_changed_price_carries_no_cut(sessions):
+    _sweep(sessions, T1, [make_listing("111", price=500_000)])
+    _sweep(sessions, T2, [make_listing("111", price=500_000)])
+
+    with sessions() as s:
+        payload = build_payload(s, WATCH, GENERATED)
+
+    row = payload["listings"][0]
+    assert row["first_price"] is None
+    assert row["price_cut_dollars"] is None
+    assert row["price_cut_pct"] is None
+
+
 def test_an_empty_database_is_an_honest_empty_payload(sessions):
     with sessions() as s:
         payload = build_payload(s, WATCH, GENERATED)
@@ -178,6 +205,9 @@ def test_the_payload_snapshots_cleanly_for_a_small_known_market(sessions):
                 "status": "House for sale",
                 "link": "https://www.zillow.com/homedetails/111_zpid/",
                 "distance_miles": 1.2,
+                "first_price": None,
+                "price_cut_dollars": None,
+                "price_cut_pct": None,
             }
         ],
         "movement": {

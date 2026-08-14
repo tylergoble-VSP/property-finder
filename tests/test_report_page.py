@@ -71,3 +71,26 @@ def test_a_second_sweep_page_carries_the_cut_and_the_departure(sessions):
     assert json.dumps(cut["address"]) in page
     assert json.dumps(cut["delta"]) in page  # -20,000, whatever its exact JSON spelling
     assert json.dumps(gone["address"]) in page
+
+
+def test_a_home_cut_twice_carries_its_cumulative_cut_into_the_page(sessions):
+    _sweep(sessions, T1, [make_listing("111", price=500_000)])
+    _sweep(sessions, T2, [make_listing("111", price=480_000)])
+    _sweep(sessions, "2026-07-12T10:00:00Z", [make_listing("111", price=465_000)])
+
+    page, payload = _page(sessions)
+    row = payload["listings"][0]
+
+    assert row["price_cut_dollars"] == 35_000
+    assert json.dumps(row["price_cut_dollars"]) in page
+
+
+def test_a_never_cut_home_carries_no_cut_figure_into_the_page(sessions):
+    _sweep(sessions, T1, [make_listing("111", price=500_000)])
+    _sweep(sessions, T2, [make_listing("111", price=500_000)])
+
+    page, payload = _page(sessions)
+    row = payload["listings"][0]
+
+    assert row["price_cut_dollars"] is None
+    assert '"price_cut_dollars":null' in page
