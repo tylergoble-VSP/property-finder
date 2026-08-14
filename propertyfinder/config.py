@@ -65,6 +65,8 @@ class Settings(BaseSettings):
 
     # mail, for the daily digest — absent means "print instead of send"
     smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_tls: bool = True
     smtp_username: str = ""
     smtp_password: str = ""
     alert_email_from: str = ""
