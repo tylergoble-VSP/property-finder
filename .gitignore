@@ -1,0 +1,18 @@
+# secrets — never committed, under any name
+.env
+env
+
+# environment and caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+
+# data and generated output — the laptop's memory, not the repo's
+*.db
+*.db-shm
+*.db-wal
+reports/
+site/
+logs/
