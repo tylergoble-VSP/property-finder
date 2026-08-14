@@ -23,7 +23,10 @@ propertyfinder init          # create the database
 propertyfinder sweep         # costs real API quota — see docs/EXPERT-PLAN.md on budget
 propertyfinder report        # the map where there are sales to value against, else a table
 propertyfinder map           # the map under its own name, whatever the report chose
+propertyfinder daily         # sweep everything, rebuild everything, mail one digest
 ```
 
 Secrets live in `.env` (never committed): `SEARCHAPI_API_KEY`, and optionally
-`PROPERTYFINDER_DB_PATH` and `QUOTA_CAP_SEARCHAPI_MONTHLY`.
+`PROPERTYFINDER_DB_PATH`, `QUOTA_CAP_SEARCHAPI_MONTHLY`, and the SMTP settings `daily`
+mails its digest through (unset means it prints the digest instead of sending it). See
+`docs/scheduling.md` for running `daily` on a timer.

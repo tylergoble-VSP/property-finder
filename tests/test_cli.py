@@ -460,3 +460,80 @@ def test_enrich_stops_and_says_so_when_the_budget_runs_out(home, capsys):
     out = capsys.readouterr().out
     assert "walsh-aledo: 1 enriched, 0 miss, 4 field(s) filled (stopped: budget exhausted)" in out
     assert "budget: 1/1 calls spent (0 left)" in out
+
+
+# -- daily: sweep, predict, rebuild, digest, within budget -----------------------------
+
+
+def test_daily_runs_the_whole_pipeline_and_prints_its_accounting(home, capsys, monkeypatch):
+    monkeypatch.setattr(cli, "utc_now_iso", lambda: "2026-07-20T09:00:00Z")
+    client, transport = _client(_sold_market())  # both watches see the same 26-home market
+
+    assert main(["daily"], client=client) == 0
+    out = capsys.readouterr().out
+
+    # the sweep, both watches
+    assert "walsh-aledo: 26 in radius" in out
+    assert "walsh-aledo-sold: 26 in radius" in out
+    # the calibration loop: recorded against the freshly-swept comps, resolved in the same
+    # run because those comps are, in this fixture, the very homes marked sold
+    assert "walsh-aledo: predictions +26 recorded, 26 resolved" in out
+    # the page, chosen and explained the same way `report` explains it
+    assert "walsh-aledo: 26 listing(s) · map report (valued against walsh-aledo-sold)" in out
+    # the digest, unsent because no test ever configures SMTP
+    assert "digest printed (SMTP unconfigured): Property Finder — Jul 20" in out
+    # every call anyone made, against the day's slice of the monthly cap (1000 // 30)
+    assert "budget: 2/33 calls spent (31 left)" in out
+    assert len(transport.requests) == 2
+
+    latest = home / "reports" / "walsh-aledo.html"
+    alias = home / "reports" / "walsh-aledo-map.html"
+    dated = home / "reports" / "walsh-aledo-2026-07-20.html"
+    assert latest.exists() and alias.exists() and dated.exists()
+    assert latest.read_bytes() == alias.read_bytes()  # the report already was the map
+    # only for-sale watches get a page — the sold companion is comps, not a listing
+    assert not (home / "reports" / "walsh-aledo-sold.html").exists()
+
+
+def test_daily_no_sweep_rebuilds_from_whatever_is_already_stored(home, capsys, monkeypatch):
+    client, _ = _client(_market(_row("111", 500_000)))
+    main(["sweep", "--watch", "walsh-aledo"], client=client)
+    capsys.readouterr()
+
+    monkeypatch.setattr(cli, "utc_now_iso", lambda: "2026-07-21T09:00:00Z")
+    assert main(["daily", "--no-sweep"]) == 0  # no client at all — --no-sweep touches no network
+
+    out = capsys.readouterr().out
+    assert "--no-sweep: rebuilding from what" in out
+    assert "walsh-aledo: 1 listing(s)" in out
+    assert "digest printed (SMTP unconfigured)" in out
+    assert "budget: 0/33 calls spent (33 left)" in out  # nothing was spent — nothing swept
+
+
+def test_daily_stops_sweeping_at_the_budget_but_still_finishes_the_rest(home, capsys, monkeypatch):
+    """The degrade path: a ceiling too small for every watch stops the sweep loop, and
+    everything after it — predictions, pages, the digest — still runs against whatever the
+    database holds, which here is one watch swept and its companion never reached."""
+    monkeypatch.setattr(cli, "utc_now_iso", lambda: "2026-07-22T09:00:00Z")
+    client, transport = _client(_market(_row("111", 500_000)))
+
+    assert main(["daily", "--budget", "1"], client=client) == 0
+    out = capsys.readouterr().out
+
+    assert "walsh-aledo: 1 in radius" in out
+    assert "stopped sweeping before spending more than the ceiling" in out
+    assert "rebuilding pages from whatever the database already has" in out
+    assert "walsh-aledo: 1 listing(s) · map report (valued against walsh-aledo-sold" in out
+    assert "not scored: walsh-aledo-sold holds too few usable sales to fit a model" in out
+    assert "digest printed (SMTP unconfigured)" in out
+    assert "budget: 1/1 calls spent (0 left)" in out
+    assert len(transport.requests) == 1  # the second watch's sweep never happened
+    assert not (home / "reports" / "walsh-aledo-sold.html").exists()
+
+
+def test_daily_budget_flag_overrides_the_monthly_cap_slice(home, capsys, monkeypatch):
+    monkeypatch.setattr(cli, "utc_now_iso", lambda: "2026-07-23T09:00:00Z")
+    client, _ = _client(_market(_row("111", 500_000)))
+
+    assert main(["daily", "--budget", "5"], client=client) == 0
+    assert "budget: 2/5 calls spent (3 left)" in capsys.readouterr().out

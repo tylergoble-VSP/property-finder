@@ -1,4 +1,4 @@
-"""Seven commands, which is the whole tool at this stage.
+"""Eight commands, which is the whole tool at this stage.
 
     propertyfinder init                    build or update the database
     propertyfinder watches                 list what is configured
@@ -7,6 +7,7 @@
     propertyfinder map [--watch NAME]      the deal map, under its own dated name
     propertyfinder predictions             how wrong the valuation model has been
     propertyfinder enrich [--watch NAME]   pull year built, lot, dues and tax via detail
+    propertyfinder daily [--no-sweep]      sweep everything, rebuild everything, one digest
 
 The original grew to fourteen commands, several of them one-offs that outlived their
 question. This one adds a command when a person needs it, not when a module appears.
@@ -25,7 +26,8 @@ against a ceiling, and the ceiling is stated out loud when the run ends — a to
 spends a shared monthly allowance should never leave anyone guessing what a command cost.
 
 `report` and `predictions` spend nothing — they only read what `sweep` already stored —
-so they take no client and no budget.
+so they take no client and no budget. `daily` is the one command that does everything
+above in order: it is what a scheduler calls once a morning (docs/scheduling.md).
 """
 from __future__ import annotations
 
@@ -38,18 +40,36 @@ import httpx
 from propertyfinder.adapters import ZillowAdapter
 from propertyfinder.budget import BudgetExceeded, CallBudget
 from propertyfinder.config import Settings, build_engine, load_watch_config
+from propertyfinder.digest import build_digest
 from propertyfinder.enrich import enrich_watch
 from propertyfinder.mapdata import build_map_payload, sold_companion
+from propertyfinder.notify import send_email
 from propertyfinder.pagebuild import render
-from propertyfinder.predictions import calibration_report, format_calibration
+from propertyfinder.predictions import (
+    calibration_report,
+    format_calibration,
+    record_predictions,
+    resolve_predictions,
+)
 from propertyfinder.reportdata import build_payload
-from propertyfinder.store import run_migrations, schema_version, session_factory
+from propertyfinder.store import (
+    latest_snapshot_rows,
+    run_migrations,
+    schema_version,
+    session_factory,
+)
 from propertyfinder.sweep import SweepSummary, run_sweep
 from propertyfinder.timeutil import utc_now_iso
 
 log = logging.getLogger(__name__)
 
 REPORTS_DIR = Path("reports")
+
+# `daily` runs once a morning against a monthly allowance, so its default budget is a
+# slice of that allowance rather than the whole thing — spending the entire month's quota
+# on the first day would starve every day after it. `--budget` overrides this arithmetic
+# outright, for a person who knows better than the default cadence.
+DAILY_SLICE_DAYS = 30
 
 
 def cmd_init(args, settings: Settings, _client) -> int:
@@ -146,19 +166,26 @@ def _write_pages(args, settings: Settings, stem: str, kind: str | None) -> int:
         with sessions() as session:
             page, count, note = _build_page(session, watch, config, now, chosen)
 
-        # A dated archive that never changes once written, and a canonical name that
-        # always means "the current one" — the same pairing the sweep's own history
-        # depends on, one layer up: today's page should be findable by date forever, and
-        # by name right now.
-        dated = REPORTS_DIR / f"{stem.format(name=watch.name)}-{now[:10]}.html"
-        latest = REPORTS_DIR / f"{stem.format(name=watch.name)}.html"
-        dated.write_text(page)
-        latest.write_text(page)
+        dated, latest = _write_page_pair(stem.format(name=watch.name), now, page)
         print(
             f"{watch.name}: {count} listing(s) · {chosen} report ({why}{note}) "
             f"-> {dated} and {latest}"
         )
     return 0
+
+
+def _write_page_pair(stem: str, now: str, page: str) -> tuple[Path, Path]:
+    """Write `page` under both names and return them: (dated archive, canonical latest).
+
+    A dated archive that never changes once written, and a canonical name that always
+    means "the current one" — the same pairing the sweep's own history depends on, one
+    layer up: today's page should be findable by date forever, and by name right now.
+    """
+    dated = REPORTS_DIR / f"{stem}-{now[:10]}.html"
+    latest = REPORTS_DIR / f"{stem}.html"
+    dated.write_text(page)
+    latest.write_text(page)
+    return dated, latest
 
 
 def _kind_for(config, watch, requested: str | None) -> tuple[str, str]:
@@ -241,6 +268,115 @@ def cmd_predictions(args, settings: Settings, _client) -> int:
     return 0
 
 
+def cmd_daily(args, settings: Settings, client: httpx.Client | None) -> int:
+    """Sweep everything, rebuild everything, mail one digest — the whole tool, once.
+
+    This is what a scheduler calls (docs/scheduling.md): every watch swept, sold
+    companions included; the calibration loop frozen and resolved; a report and a map
+    rebuilt for every for-sale watch; one digest, sent if mail is configured and printed
+    otherwise. Nothing here is new arithmetic — it is `sweep`, `predictions`, `report`,
+    and `map` run in the order a morning needs them, against one clock (`now`) so every
+    page, every prediction, and the digest that describes them all agree on what day it is.
+
+    A budget that runs out partway through sweeping is not a failure: the remaining
+    sweeps are skipped, and everything after — predictions, pages, the digest — still
+    runs against whatever the database already holds. A `daily` that sends no digest
+    because a mid-month sweep tripped a ceiling would be a worse outcome than a slightly
+    stale one that still arrives.
+    """
+    config = load_watch_config(args.watch_config)
+    engine = build_engine(settings)
+    run_migrations(engine)
+    sessions = session_factory(engine)
+    now = utc_now_iso()
+
+    # The day's slice of the shared monthly allowance, not the whole thing — spending the
+    # entire month's quota on the first day would starve every day after it.
+    default_ceiling = max(settings.quota_cap_searchapi_monthly // DAILY_SLICE_DAYS, 1)
+    ceiling = args.budget if args.budget is not None else default_ceiling
+    budget = CallBudget(max_calls=ceiling, label="daily run")
+
+    if args.no_sweep:
+        print(f"--no-sweep: rebuilding from what {settings.db_path} already holds")
+    else:
+        adapter = ZillowAdapter.from_settings(settings, client=client, budget=budget)
+        for watch in config.watches:
+            try:
+                with sessions() as session:
+                    summary = run_sweep(session, adapter, watch, now=now)
+            except BudgetExceeded as exc:
+                print(f"stopped sweeping before spending more than the ceiling: {exc}")
+                print("rebuilding pages from whatever the database already has")
+                break
+            _print_summary(summary)
+
+    # The calibration loop: freeze today's expectation for every active listing, and mark
+    # yesterday's against whatever turned up sold. Spends no quota — read-only over what
+    # the sweep above (or a previous one, on --no-sweep) already wrote.
+    for watch in config.watches:
+        if watch.listing_status != "for_sale":
+            continue
+        companion = sold_companion(config, watch)
+        if companion is None:
+            continue
+        with sessions() as session:
+            model = _fit_for_predictions(latest_snapshot_rows(session, companion), now)
+            recorded = record_predictions(session, watch.name, now, model)
+            resolved = resolve_predictions(session, companion, now)
+        if recorded or resolved:
+            print(f"{watch.name}: predictions +{recorded} recorded, {resolved} resolved")
+
+    # Every for-sale watch gets both names: the canonical report, whichever kind the data
+    # earns, and the `-map` alias `map` would have written on its own. When the report is
+    # already the map they are the same bytes, so the second build is skipped rather than
+    # re-fitting a model the first build already fit.
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    for watch in config.watches:
+        if watch.listing_status != "for_sale":
+            continue
+        chosen, why = _kind_for(config, watch, None)
+        with sessions() as session:
+            page, count, note = _build_page(session, watch, config, now, chosen)
+        _write_page_pair(watch.name, now, page)
+        print(f"{watch.name}: {count} listing(s) · {chosen} report ({why}{note})")
+
+        if chosen == "map":
+            _write_page_pair(f"{watch.name}-map", now, page)
+        else:
+            with sessions() as session:
+                map_page, map_count, map_note = _build_page(session, watch, config, now, "map")
+            _write_page_pair(f"{watch.name}-map", now, map_page)
+            print(
+                f"{watch.name}: {map_count} listing(s) · map report "
+                f"(kept under -map alias{map_note})"
+            )
+
+    with sessions() as session:
+        subject, body = build_digest(session, config, now)
+    sent = send_email(settings, subject, body)
+    print(f"digest {'emailed' if sent else 'printed (SMTP unconfigured)'}: {subject}")
+    if not sent:
+        print()
+        print(body)
+
+    print(f"budget: {budget}")
+    return 0
+
+
+def _fit_for_predictions(sold_rows: list[dict], now_iso: str):
+    """The model predictions are recorded against, or None — degrading exactly the way
+    the report does: too few sold comps, or the `stats` extra not installed, and
+    `record_predictions` already treats a missing model as "nothing to record", not an
+    error. The import stays deferred here for the same reason it does in `mapdata.py`:
+    a core-only install must be able to run `daily` at all, just with no predictions.
+    """
+    try:
+        from propertyfinder.stats import HedonicModel
+    except ImportError:  # pragma: no cover - exercised only on a core-only install
+        return None
+    return HedonicModel.fit(sold_rows, now_iso=now_iso)
+
+
 def _print_summary(summary: SweepSummary, detail: int = 8) -> None:
     print(summary.headline())
     for cut in summary.cuts[:detail]:
@@ -260,6 +396,7 @@ COMMANDS = {
     "map": cmd_map,
     "predictions": cmd_predictions,
     "enrich": cmd_enrich,
+    "daily": cmd_daily,
 }
 
 
@@ -322,6 +459,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--budget",
         type=int,
         help="the most billable calls this run may spend (default: the monthly cap)",
+    )
+
+    daily = subparsers.add_parser(
+        "daily", help="sweep everything, rebuild every page, mail one digest"
+    )
+    daily.add_argument(
+        "--no-sweep",
+        action="store_true",
+        help="skip the sweep and rebuild predictions/pages/digest from the database as-is",
+    )
+    daily.add_argument(
+        "--budget",
+        type=int,
+        help="the most billable calls this run may spend "
+        "(default: the monthly cap divided across 30 days)",
     )
     return parser
 
