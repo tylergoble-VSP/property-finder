@@ -227,3 +227,97 @@ def previous_snapshot_map(
         params,
     ).mappings().all()
     return {r["zpid"]: dict(r) for r in rows}
+
+
+# -- what a sweep changed, read back out of history ------------------------------------
+#
+# `run_sweep` computes this diff live, against listings it just collected, and reports it
+# once, on the spot. But the exact same comparison is recoverable from the database alone
+# any time afterwards: the two most recent sweeps a watch has on record are, respectively,
+# precisely the "found" and the "baseline" a live diff would have used. `sweep_changes` is
+# that comparison, reusable by a report built long after the sweep that produced it.
+
+
+def sweep_changes(session: Session, watch_name: str) -> dict:
+    """New, cut, raised, status-flipped, and gone since the sweep before the latest one.
+
+    A database holding fewer than two sweeps of this watch has nothing to compare against
+    — every bucket comes back empty and `history_began` is False, which is a caller's cue
+    to say "history begins today" rather than print a diff that would otherwise look
+    identical to "a second sweep changed nothing at all".
+    """
+    rows = latest_snapshot_rows(session, watch_name)
+    address_by_zpid = {r["zpid"]: r["address"] for r in rows}
+    latest_ts = max((r["snapshot_ts"] for r in rows), default=None)
+
+    empty = {
+        "new": [],
+        "cuts": [],
+        "rises": [],
+        "status_changes": [],
+        "gone": [],
+        "history_began": False,
+    }
+    if latest_ts is None:
+        return empty
+
+    baseline = previous_snapshot_map(session, watch_name, latest_ts)
+    if not baseline:
+        return empty  # one sweep on record: nothing precedes it to diff against
+
+    found = {r["zpid"]: r for r in rows if r["snapshot_ts"] == latest_ts}
+    new: list[dict] = []
+    cuts: list[dict] = []
+    rises: list[dict] = []
+    flips: list[dict] = []
+
+    for zpid, row in found.items():
+        was = baseline.get(zpid)
+        if was is None:
+            new.append({"zpid": zpid, "address": row["address"], "price": row["price"]})
+            continue
+        if row["price"] and was["price"] and row["price"] != was["price"]:
+            move = {
+                "zpid": zpid,
+                "address": row["address"],
+                "previous": was["price"],
+                "current": row["price"],
+                "delta": row["price"] - was["price"],
+                "since": was["snapshot_ts"],
+            }
+            (cuts if move["delta"] < 0 else rises).append(move)
+        if row["status_text"] and row["status_text"] != was["status_text"]:
+            flips.append(
+                {
+                    "zpid": zpid,
+                    "address": row["address"],
+                    "previous": was["status_text"],
+                    "current": row["status_text"],
+                    "since": was["snapshot_ts"],
+                }
+            )
+
+    # "Gone" is scoped the same way run_sweep scopes it: only a home last seen in the
+    # sweep immediately preceding this one can have just left. A home that sold in some
+    # earlier sweep and has been absent ever since must not be reported gone again today.
+    last_sweep_ts = max((r["snapshot_ts"] for r in baseline.values()), default=None)
+    gone = [
+        {"zpid": zpid, "address": address_by_zpid.get(zpid), "price": row["price"]}
+        for zpid, row in baseline.items()
+        if row["snapshot_ts"] == last_sweep_ts and zpid not in found
+    ]
+
+    new.sort(key=lambda d: (d["address"] or "", d["zpid"]))
+    cuts.sort(key=lambda d: d["delta"])  # the biggest cut first
+    rises.sort(key=lambda d: -d["delta"])  # the biggest rise first
+    flips.sort(key=lambda d: (d["address"] or "", d["zpid"]))
+    gone.sort(key=lambda d: (d["address"] or "", d["zpid"]))
+
+    return {
+        "new": new,
+        "cuts": cuts,
+        "rises": rises,
+        "status_changes": flips,
+        "gone": gone,
+        "history_began": True,
+    }
