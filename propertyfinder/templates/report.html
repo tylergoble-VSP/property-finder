@@ -92,6 +92,16 @@
   }
   tr:last-child td { border-bottom: none; }
   td.num { text-align: right; white-space: nowrap; }
+  .assumptions {
+    display: grid; grid-template-columns: auto 1fr; gap: 4px 18px;
+    margin: 12px 0 16px; font-size: 13.5px;
+  }
+  .assumptions dt { color: var(--muted); }
+  .assumptions dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .cite {
+    color: var(--ink-soft); font-size: 12.5px; margin: 0 0 8px; max-width: 80ch;
+    border-left: 2px solid var(--border); padding-left: 12px;
+  }
   a { color: var(--accent); text-decoration: none; font-weight: 600; }
   a:hover { text-decoration: underline; }
   footer {
@@ -122,6 +132,7 @@
           <th data-key="baths" class="num">Baths</th>
           <th data-key="sqft" class="num">Square feet</th>
           <th data-key="price_per_sqft" class="num">$ / square foot</th>
+          <th data-key="carry_total" class="num">Monthly carry</th>
           <th data-key="days_on_market" class="num">Days on market</th>
           <th data-key="price_cut_dollars" class="num">Cut so far</th>
           <th data-key="distance_miles" class="num">Distance</th>
@@ -131,6 +142,19 @@
       <tbody></tbody>
     </table>
   </div>
+
+  <section id="pf-appendix" hidden>
+    <h2>About the tax numbers</h2>
+    <p class="spec">
+      Every monthly carry figure on this page rests on the assumptions below. They are
+      quoted here rather than buried in a config file because an earlier version of this
+      tool ran for weeks on a guessed tax rate, and correcting it moved every monthly
+      number by hundreds of dollars. Verify before you offer.
+    </p>
+    <dl class="assumptions" id="pf-assumptions"></dl>
+    <p class="cite" id="pf-tax-citation"></p>
+    <p class="cite" id="pf-assessment-citation"></p>
+  </section>
 
   <footer id="pf-footer"></footer>
 </div>
@@ -177,6 +201,8 @@
       ["Listings", plain(payload.counts.total), "in the latest sweep"],
       ["Median price", money(payload.medians.price), "list price"],
       ["Median $ / square foot", money(payload.medians.price_per_sqft), ""],
+      ["Median monthly carry", money(payload.medians.carry),
+       payload.finance ? "loan, tax, insurance, dues, district" : "no assumptions given"],
       ["Median days on market", plain(payload.medians.days_on_market), ""]
     ];
     kpis.forEach(function (k) {
@@ -250,6 +276,16 @@
       tr.appendChild(td(plain(r.baths), "num"));
       tr.appendChild(td(plain(r.sqft), "num"));
       tr.appendChild(td(money(r.price_per_sqft), "num"));
+      // A home with no carry figure is one the page was given no assumptions for, or one
+      // with no asking price. Either way the cell says nothing rather than guessing.
+      var carryCell = td(r.carry ? money(r.carry.total) : "—", "num");
+      if (r.carry) {
+        carryCell.title =
+          money(r.carry.principal_interest) + " loan · " + money(r.carry.tax) + " tax at " +
+          r.carry.tax_rate_used + "% · " + money(r.carry.insurance) + " insurance · " +
+          money(r.carry.dues) + " dues · " + money(r.carry.assessment) + " district";
+      }
+      tr.appendChild(carryCell);
       tr.appendChild(td(plain(r.days_on_market), "num"));
       // price_cut_dollars is positive when the ask has fallen (store's convention);
       // deltaMoney expects negative-is-a-cut, so its sign is flipped going in.
@@ -263,6 +299,51 @@
     });
   }
 
+  function sortValue(row, key) {
+    // Every column but one reads a top-level field. Carry is a nested block, because the
+    // itemisation is worth carrying around whole rather than flattened into the row.
+    if (key === "carry_total") return row.carry ? row.carry.total : null;
+    return row[key];
+  }
+
+  function renderAppendix() {
+    var fin = payload.finance;
+    if (!fin) return;  // no assumptions were given, so there is nothing to account for
+    document.getElementById("pf-appendix").hidden = false;
+
+    var district = fin.special_assessment || {};
+    var districtLine = district.flat_annual !== null && district.flat_annual !== undefined
+      ? money(district.flat_annual) + " a year, a flat bill per lot"
+      : (district.pct !== null && district.pct !== undefined
+          ? district.pct + "% of value a year"
+          : "none in this market");
+
+    var rows = [
+      ["Mortgage rate", fin.mortgage_rate + "%, fixed"],
+      ["Down payment", fin.down_pct + "%"],
+      ["Loan term", fin.loan_term_years + " years"],
+      ["Property tax rate", fin.default_tax_rate + "% of value a year"],
+      ["Improvement district", districtLine],
+      ["Insurance", "$" + fin.insurance_annual_per_1000 + " a year per $1,000 of value"],
+      ["Association dues", money(fin.hoa_default_monthly) + " a month where unknown"]
+    ];
+    var dl = document.getElementById("pf-assumptions");
+    rows.forEach(function (r) {
+      var dt = document.createElement("dt"); dt.textContent = r[0];
+      var dd = document.createElement("dd"); dd.textContent = r[1];
+      dl.appendChild(dt); dl.appendChild(dd);
+    });
+
+    if (fin.tax_rate_citation) {
+      document.getElementById("pf-tax-citation").textContent =
+        "Tax rate: " + fin.tax_rate_citation;
+    }
+    if (district.citation) {
+      document.getElementById("pf-assessment-citation").textContent =
+        "District assessment: " + district.citation;
+    }
+  }
+
   function wireSorting() {
     var sortKey = null;
     var sortAsc = true;
@@ -273,7 +354,7 @@
         sortAsc = sortKey === key ? !sortAsc : true;
         sortKey = key;
         var sorted = payload.listings.slice().sort(function (a, b) {
-          var av = a[key], bv = b[key];
+          var av = sortValue(a, key), bv = sortValue(b, key);
           if (av === null || av === undefined) return 1;
           if (bv === null || bv === undefined) return -1;
           if (av < bv) return sortAsc ? -1 : 1;
@@ -303,6 +384,7 @@
   renderKpis();
   renderRows(payload.listings);
   wireSorting();
+  renderAppendix();
   renderFooter();
 })();
 </script>

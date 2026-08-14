@@ -20,19 +20,33 @@ movement strip's "gone" bucket, not a table of things still for sale.
 The `movement` block is `store.sweep_changes` verbatim — this module does no diffing of
 its own. History is the product, and the payload's job is to hand the page whatever the
 store already knows how to say about it.
+
+`carry` is the monthly cost of holding each home, and it is present only when the caller
+supplies the assumptions it rests on. Nothing here invents a mortgage rate or a tax rate:
+a report built without a finance block simply has no monthly column, which is the honest
+outcome. When there *is* one, the citations travel with it into the page, because a number
+that moved every monthly figure by hundreds of dollars when it was corrected is a number
+the reader is owed the source of.
 """
 from __future__ import annotations
 
 import statistics
 from collections.abc import Iterable
+from dataclasses import asdict
 
 from sqlalchemy.orm import Session
 
-from propertyfinder.config import Watch
+from propertyfinder.config import FinanceAssumptions, Watch
+from propertyfinder.costmodel import monthly_cost
 from propertyfinder.store import latest_snapshot_rows, price_change_map, sweep_changes
 
 
-def build_payload(session: Session, watch: Watch, generated_ts: str) -> dict:
+def build_payload(
+    session: Session,
+    watch: Watch,
+    generated_ts: str,
+    finance: FinanceAssumptions | None = None,
+) -> dict:
     """Everything one report renders, computed once and handed to the template whole."""
     rows = latest_snapshot_rows(session, watch.name)
     sweep_ts = max((r["snapshot_ts"] for r in rows), default=None)
@@ -40,7 +54,7 @@ def build_payload(session: Session, watch: Watch, generated_ts: str) -> dict:
 
     cuts_to_date = price_change_map(session, watch.name)
     listings = sorted(
-        (_listing_row(r, cuts_to_date.get(r["zpid"])) for r in active),
+        (_listing_row(r, cuts_to_date.get(r["zpid"]), finance) for r in active),
         key=_listing_sort_key,
     )
 
@@ -58,13 +72,26 @@ def build_payload(session: Session, watch: Watch, generated_ts: str) -> dict:
             "price": _median(r["price"] for r in listings),
             "price_per_sqft": _median(r["price_per_sqft"] for r in listings),
             "days_on_market": _median(r["days_on_market"] for r in listings),
+            "carry": _median(
+                (r["carry"] or {}).get("total") for r in listings if r["carry"]
+            ),
         },
+        "finance": _finance_block(finance),
         "listings": listings,
         "movement": sweep_changes(session, watch.name),
     }
 
 
-def _listing_row(row: dict, price_cut: dict | None) -> dict:
+def _finance_block(finance: FinanceAssumptions | None) -> dict | None:
+    """The assumptions every `carry` figure rests on, verbatim, for the page's appendix.
+
+    `model_dump` rather than a hand-written dict: the appendix's whole purpose is to show
+    what was assumed, and a hand-copied list is a place for an assumption to go unshown.
+    """
+    return None if finance is None else finance.model_dump()
+
+
+def _listing_row(row: dict, price_cut: dict | None, finance: FinanceAssumptions | None) -> dict:
     """One home's payload row. `price_per_sqft` is computed here, once, honestly: absent
     unless both price and square footage are actually known.
 
@@ -73,6 +100,14 @@ def _listing_row(row: dict, price_cut: dict | None) -> dict:
     zero the template would otherwise have to know to hide.
     """
     price, sqft = row.get("price"), row.get("sqft")
+    # No tax rate or dues are stored per home yet (both arrive with the detail engine at
+    # Stage 8), so every home is costed on the watch's own verified rate — which is the
+    # better number here anyway: it is the adopted stack, not a county average.
+    carry = (
+        monthly_cost(price, tax_rate=None, hoa_monthly=None, fin=finance)
+        if finance is not None
+        else None
+    )
     return {
         "zpid": row["zpid"],
         "address": row.get("address"),
@@ -88,6 +123,7 @@ def _listing_row(row: dict, price_cut: dict | None) -> dict:
         "first_price": price_cut["first"] if price_cut else None,
         "price_cut_dollars": price_cut["cut_dollars"] if price_cut else None,
         "price_cut_pct": price_cut["cut_pct"] if price_cut else None,
+        "carry": asdict(carry) if carry else None,
     }
 
 

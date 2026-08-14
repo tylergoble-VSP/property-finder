@@ -7,9 +7,18 @@ sold-and-gone home masquerade as an active listing, it is wrong here.
 import pytest
 from conftest import make_listing
 
-from propertyfinder.config import Watch
+from propertyfinder.config import FinanceAssumptions, SpecialAssessment, Watch
+from propertyfinder.costmodel import monthly_cost
 from propertyfinder.reportdata import build_payload
 from propertyfinder.store import record_snapshot, upsert_property
+
+WALSH_FINANCE = FinanceAssumptions(
+    default_tax_rate=2.339427,
+    tax_rate_citation="Tax year 2025 adopted rates, verified 2026-08-06.",
+    special_assessment=SpecialAssessment(
+        flat_annual=3271.0, citation="Service-and-assessment plan, May 2026 update."
+    ),
+)
 
 WATCH = Watch(
     name="walsh-aledo",
@@ -143,6 +152,56 @@ def test_a_listing_that_has_never_changed_price_carries_no_cut(sessions):
     assert row["price_cut_pct"] is None
 
 
+def test_a_listing_carries_its_monthly_cost_and_it_is_the_cost_models_own_number(sessions):
+    """The payload does no money arithmetic of its own — it calls the cost model and
+    passes the answer through. Recomputing the same figure directly is what proves that."""
+    _sweep(sessions, T1, [make_listing("111", price=700_000)])
+    with sessions() as s:
+        payload = build_payload(s, WATCH, GENERATED, WALSH_FINANCE)
+
+    carry = payload["listings"][0]["carry"]
+    direct = monthly_cost(700_000, tax_rate=None, hoa_monthly=None, fin=WALSH_FINANCE)
+
+    assert carry["total"] == direct.total
+    assert carry["assessment"] == direct.assessment == 273  # $3,271 a year, flat
+    assert carry["assessment_basis"] == "flat"
+    assert carry["tax_rate_used"] == 2.339427 and carry["tax_basis"] == "default"
+    assert payload["medians"]["carry"] == direct.total
+
+
+def test_a_report_given_no_assumptions_claims_no_monthly_cost(sessions):
+    """A monthly figure is only as good as the rate under it. Absent a finance block there
+    is no honest number to print, so there is no number — not one on the model's defaults."""
+    _sweep(sessions, T1, [make_listing("111", price=700_000)])
+    with sessions() as s:
+        payload = build_payload(s, WATCH, GENERATED)
+
+    assert payload["finance"] is None
+    assert payload["listings"][0]["carry"] is None
+    assert payload["medians"]["carry"] is None
+
+
+def test_a_home_with_no_asking_price_has_no_monthly_cost(sessions):
+    _sweep(sessions, T1, [make_listing("111", price=None)])
+    with sessions() as s:
+        payload = build_payload(s, WATCH, GENERATED, WALSH_FINANCE)
+
+    assert payload["listings"][0]["carry"] is None
+
+
+def test_the_finance_block_carries_every_assumption_and_its_citation(sessions):
+    """The appendix's job is to show what was assumed, so the payload hands over the whole
+    block rather than a hand-picked selection — a hand-picked one is where an assumption
+    goes unshown."""
+    _sweep(sessions, T1, [make_listing("111", price=700_000)])
+    with sessions() as s:
+        payload = build_payload(s, WATCH, GENERATED, WALSH_FINANCE)
+
+    assert payload["finance"] == WALSH_FINANCE.model_dump()
+    assert "verified 2026-08-06" in payload["finance"]["tax_rate_citation"]
+    assert payload["finance"]["special_assessment"]["flat_annual"] == 3271.0
+
+
 def test_an_empty_database_is_an_honest_empty_payload(sessions):
     with sessions() as s:
         payload = build_payload(s, WATCH, GENERATED)
@@ -150,7 +209,12 @@ def test_an_empty_database_is_an_honest_empty_payload(sessions):
     assert payload["sweep_ts"] is None
     assert payload["listings"] == []
     assert payload["counts"] == {"total": 0}
-    assert payload["medians"] == {"price": None, "price_per_sqft": None, "days_on_market": None}
+    assert payload["medians"] == {
+        "price": None,
+        "price_per_sqft": None,
+        "days_on_market": None,
+        "carry": None,
+    }
     assert payload["movement"]["history_began"] is False
 
 
@@ -191,7 +255,9 @@ def test_the_payload_snapshots_cleanly_for_a_small_known_market(sessions):
             "price": 674_900.0,
             "price_per_sqft": 674_900.0 / 3012,
             "days_on_market": 27,
+            "carry": None,
         },
+        "finance": None,
         "listings": [
             {
                 "zpid": "111",
@@ -208,6 +274,7 @@ def test_the_payload_snapshots_cleanly_for_a_small_known_market(sessions):
                 "first_price": None,
                 "price_cut_dollars": None,
                 "price_cut_pct": None,
+                "carry": None,
             }
         ],
         "movement": {

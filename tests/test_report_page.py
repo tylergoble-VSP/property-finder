@@ -10,7 +10,7 @@ import json
 
 from conftest import make_listing
 
-from propertyfinder.config import Watch
+from propertyfinder.config import Watch, load_watch_config
 from propertyfinder.pagebuild import render
 from propertyfinder.reportdata import build_payload
 from propertyfinder.store import record_snapshot, upsert_property
@@ -38,9 +38,9 @@ def _sweep(sessions, ts: str, listings) -> None:
         s.commit()
 
 
-def _page(sessions) -> str:
+def _page(sessions, finance=None) -> str:
     with sessions() as s:
-        payload = build_payload(s, WATCH, GENERATED)
+        payload = build_payload(s, WATCH, GENERATED, finance)
     return render("report.html", payload), payload
 
 
@@ -94,3 +94,44 @@ def test_a_never_cut_home_carries_no_cut_figure_into_the_page(sessions):
 
     assert row["price_cut_dollars"] is None
     assert '"price_cut_dollars":null' in page
+
+
+# -- the carry column and the appendix that accounts for it -----------------------------
+
+
+def _walsh_finance():
+    """The repo's own configured assumptions, not a test-local invention — the appendix
+    exists to publish what a real report actually assumed."""
+    cfg = load_watch_config("watch-config.yaml")
+    return cfg.finance_for(cfg.watch("walsh-aledo"))
+
+
+def test_the_page_carries_a_monthly_figure_and_the_assumptions_behind_it(sessions):
+    _sweep(sessions, T1, [make_listing("111", price=700_000)])
+    page, payload = _page(sessions, _walsh_finance())
+    carry = payload["listings"][0]["carry"]
+
+    assert "Monthly carry" in page  # the column heading
+    assert "About the tax numbers" in page  # the appendix
+    assert json.dumps(carry["total"]) in page
+    assert '"assessment_basis":"flat"' in page  # dollars per lot, not a rate
+
+
+def test_the_verified_citations_reach_the_rendered_page(sessions):
+    """The lesson from running for weeks on a guessed 2.9%: the number is only trustworthy
+    with its source attached, so the source travels into the page, not just the config."""
+    _sweep(sessions, T1, [make_listing("111", price=700_000)])
+    page, _payload = _page(sessions, _walsh_finance())
+
+    assert "2.339427" in page
+    assert "verified against the taxing entities 2026-08-06" in page
+    assert "verify per lot, in writing" in page  # the two-tier district, stated out loud
+
+
+def test_a_page_built_without_assumptions_hides_the_appendix_rather_than_guessing(sessions):
+    _sweep(sessions, T1, [make_listing("111", price=700_000)])
+    page, _payload = _page(sessions)
+
+    assert '"finance":null' in page
+    assert '"carry":null' in page
+    assert 'id="pf-appendix" hidden' in page  # the section stays hidden with no data

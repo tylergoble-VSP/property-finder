@@ -114,7 +114,7 @@ def cmd_report(args, settings: Settings, _client) -> int:
     for watch in watches:
         now = utc_now_iso()
         with sessions() as session:
-            payload = build_payload(session, watch, now)
+            payload = build_payload(session, watch, now, config.finance_for(watch))
         page = render("report.html", payload)
 
         # A dated archive that never changes once written, and a canonical name that
