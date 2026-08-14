@@ -42,14 +42,21 @@ def priced(sqft, baths=3.0, elasticity=0.83, bath_premium=0.04):
     return base * (sqft / 2400) ** elasticity * (1 + bath_premium) ** (baths - 3.0)
 
 
-def synthetic_market(n=60, disclosed=True, **kwargs):
-    """Sales on that surface, with a small deterministic wobble so the fit has residual
-    variance to estimate but no randomness to make the test flaky."""
+def synthetic_market(n=60, disclosed=True, noise=0.02):
+    """Sales on that surface, with a deterministic wobble so the fit has residual variance
+    to estimate but no randomness to make the test flaky.
+
+    `noise` is the amplitude of that wobble, and it matters more than it looks: it *is*
+    the market's own scatter, and the scatter is what "unusually cheap" is measured
+    against. A market that varies by 2% treats a 10% discount as an extreme, correctly.
+    Tests about the fit itself use the near-noiseless default; tests about how a price
+    reads to a buyer pass something like a real market's 13%.
+    """
     rows = []
     for i in range(n):
         sqft = 1800 + (i % 20) * 120  # 1,800 to 4,080 square feet
         baths = 2.0 + (i % 3)
-        price = priced(sqft, baths) * (1 + 0.02 * math.sin(i))
+        price = priced(sqft, baths) * (1 + noise * math.sin(i))
         rows.append(
             home(
                 f"s{i}",
