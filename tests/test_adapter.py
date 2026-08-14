@@ -23,13 +23,13 @@ def _serving(body, status: int = 200) -> httpx.MockTransport:
 
 def test_the_golden_page_parses_and_unfamiliar_fields_are_ignored(make_adapter):
     results, pagination = make_adapter().search_page("Aledo, TX 76008", "for_sale", 1)
-    assert [r.zpid for r in results] == [29584711, 2075294181, 88291043]
+    assert [r.zpid for r in results] == ["29584711", "2075294181", "88291043"]
     top = results[0]
-    assert top.extracted_price == 674900 and top.sqft == 3012
-    assert top.thumbnail.startswith("https://photos.zillowstatic.com/")
+    assert top.price == 674900 and top.sqft == 3012
+    assert top.image_url.startswith("https://photos.zillowstatic.com/")
     assert pagination["total_pages"] == 2
     # broker_name, carousel_photos and listing_sub_type are in the fixture and simply
-    # do not exist on the model — the feed may grow without breaking ingest.
+    # do not exist on the seam — the feed may grow without breaking ingest.
     assert not hasattr(top, "broker_name")
 
 
@@ -70,8 +70,8 @@ def test_extra_filters_are_passed_through(fake_transport, make_adapter):
 
 def test_a_listing_without_coordinates_stays_without_them(make_adapter):
     results, _ = make_adapter().search_page("Aledo, TX 76008")
-    no_coords = next(r for r in results if r.zpid == 88291043)
-    assert no_coords.latitude is None and no_coords.longitude is None
+    no_coords = next(r for r in results if r.zpid == "88291043")
+    assert no_coords.lat is None and no_coords.lon is None
 
 
 def test_the_builder_plan_sheet_arrives_as_an_ordinary_row(make_adapter):
@@ -79,13 +79,13 @@ def test_the_builder_plan_sheet_arrives_as_an_ordinary_row(make_adapter):
     plan = next(r for r in results if "Plan," in (r.address or ""))
     assert plan.status_text == "New construction"
     # The seam does not judge: excluding ask-curves from comps is a later layer's job.
-    assert plan.extracted_price == 589990
+    assert plan.price == 589990
 
 
 def test_sold_results_carry_undisclosed_prices(make_adapter):
     results = make_adapter().search("Aledo, TX 76008", "sold", max_pages=1)
     assert len(results) == 3
-    undisclosed = [r for r in results if r.extracted_price is None]
+    undisclosed = [r for r in results if r.price is None]
     assert len(undisclosed) == 2  # Texas discloses nothing; only the estimate survives
     assert all(r.zestimate and r.date_sold for r in undisclosed)
 
@@ -98,7 +98,8 @@ def test_a_misresolved_query_parses_like_any_other(make_adapter):
     """
     body = load_fixture("search_misresolved")
     results, _ = make_adapter(_serving(body)).search_page("76008")
-    assert [r.state for r in results] == ["OH", "OH"]
+    assert all("Minerva, OH" in r.address for r in results)
+    assert all(r.lat > 40 for r in results)  # nowhere near Texas, and perfectly valid
 
 
 # -- refusing what cannot be trusted --------------------------------------------------

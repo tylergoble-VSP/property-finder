@@ -12,8 +12,8 @@ The rules this module exists to enforce:
    `SchemaDrift` and returns nothing. Half-parsed scraped data must never reach storage.
 2. **The client is injected.** The adapter is handed an `httpx.Client`, which is the
    whole reason the test suite can run offline: the tests hand it a fake transport.
-3. **Nothing downstream sees raw JSON.** Callers get validated objects, and from the
-   next commit onward, one frozen `Listing`.
+3. **Nothing downstream sees raw JSON.** Search results leave here as `Listing`, and
+   nothing outside this package ever imports the provider's own models.
 """
 from __future__ import annotations
 
@@ -22,7 +22,8 @@ import logging
 import httpx
 from pydantic import ValidationError
 
-from propertyfinder.adapters.models import SearchResponse, SearchResult
+from propertyfinder.adapters.listing import Listing, to_listing
+from propertyfinder.adapters.models import SearchResponse
 from propertyfinder.config import Settings
 
 log = logging.getLogger(__name__)
@@ -103,8 +104,8 @@ class ZillowAdapter:
         listing_status: str = "for_sale",
         page: int = 1,
         extra: dict | None = None,
-    ) -> tuple[list[SearchResult], dict]:
-        """One page of results. Returns (validated results, pagination block)."""
+    ) -> tuple[list[Listing], dict]:
+        """One page of results. Returns (listings, pagination block)."""
         body = self._request(
             {
                 "engine": "zillow",
@@ -123,7 +124,9 @@ class ZillowAdapter:
             # A 200 carrying an error document is a provider failure, not drift. Returning
             # zero homes here would read downstream as "an empty market", which is a lie.
             raise ZillowHTTPError(f"zillow search returned an error: {parsed.error}")
-        return parsed.properties, parsed.pagination
+        # A row with no zpid has no identity and cannot be stored, diffed or found again.
+        listings = [x for x in (to_listing(r, listing_status) for r in parsed.properties) if x]
+        return listings, parsed.pagination
 
     def search(
         self,
@@ -131,7 +134,7 @@ class ZillowAdapter:
         listing_status: str = "for_sale",
         max_pages: int = 10,
         extra: dict | None = None,
-    ) -> list[SearchResult]:
+    ) -> list[Listing]:
         """Page through a query, stopping at the caller's ceiling or the feed's end."""
         results, pagination = self.search_page(query, listing_status, 1, extra)
         total = min(int(pagination.get("total_pages") or 1), max_pages, MAX_PAGES)
