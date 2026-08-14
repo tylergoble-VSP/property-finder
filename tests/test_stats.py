@@ -9,7 +9,13 @@ import math
 
 import pytest
 
-from propertyfinder.stats import MIN_COMPS, HedonicModel, prepare
+from propertyfinder.stats import (
+    KNN_K,
+    MIN_COMPS,
+    HedonicModel,
+    knn_comps,
+    prepare,
+)
 
 
 def home(zpid, price, sqft=2400, beds=4, baths=3, home_type="SINGLE_FAMILY",
@@ -183,3 +189,119 @@ def test_plain_english_explains_the_fit_without_jargon():
     assert "elasticity" in joined and "10% larger" in joined
     assert "60 sales" in joined
     assert "disclosed sale prices" in joined
+
+
+# -- nearest-neighbour comps --------------------------------------------------------------
+
+
+def test_knn_returns_a_local_rate_and_the_sales_behind_it():
+    solds = synthetic_market()
+    ppsf, comps = knn_comps(home("x", 600_000, sqft=3000), solds)
+
+    assert ppsf is not None and 150 < ppsf < 220
+    assert 4 <= len(comps) <= KNN_K
+    assert all(c.distance_mi >= 0 for c in comps)
+    assert all(abs(c.sqft - 3000) <= 0.25 * 3000 for c in comps)  # inside the size band
+
+
+def test_a_home_with_no_comparable_sizes_gets_no_comp_set():
+    """A 9,000-square-foot house in a market of 2,000-foot houses has no comps, and saying
+    so is the answer. Widening the band until something turns up is how a comp set stops
+    being comparable."""
+    ppsf, comps = knn_comps(home("mansion", 3_000_000, sqft=9000), synthetic_market())
+    assert (ppsf, comps) == (None, [])
+
+
+def test_comps_read_the_estimate_where_the_market_discloses_nothing():
+    ppsf, comps = knn_comps(
+        home("x", 600_000, sqft=3000), synthetic_market(disclosed=False), basis="proxy"
+    )
+    assert ppsf is not None and comps
+
+
+def test_comps_are_ordered_nearest_first():
+    solds = synthetic_market()
+    _ppsf, comps = knn_comps(home("x", 600_000, sqft=3000), solds)
+    assert [c.distance_mi for c in comps] == sorted(c.distance_mi for c in comps)
+
+
+# -- the spatial adjustment: the false-bargain regression ----------------------------------
+
+
+def two_pocket_market():
+    """Forty ordinary sales spread over a wide area at the market rate, and twenty in one
+    tight pocket at 40% below it. A single global fit lands between the two, so it
+    over-predicts every ordinary home — which is precisely how the original tool produced
+    a page of "great deals" that were only houses outside the premium pocket."""
+    rows = []
+    for i in range(40):
+        sqft = 2000 + (i % 10) * 150
+        rows.append(
+            home(f"n{i}", 280 * sqft, sqft=sqft,
+                 lat=27.40 + (i % 8) * 0.01, lon=-82.40 + (i % 5) * 0.01)
+        )
+    for i in range(20):
+        sqft = 2000 + (i % 10) * 150
+        rows.append(
+            home(f"c{i}", 140 * sqft, sqft=sqft,
+                 lat=27.60 + (i % 4) * 0.001, lon=-82.20 + (i % 4) * 0.001)
+        )
+    return rows
+
+
+def test_the_location_field_separates_the_pockets():
+    model = HedonicModel.fit(two_pocket_market())
+    assert model.location_index is not None
+
+    cheap, n = model.location_adjustment(27.60, -82.20)
+    ordinary, _ = model.location_adjustment(27.40, -82.40)
+
+    assert n > 0
+    assert cheap < -0.15  # this pocket sells well below the blended fit
+    assert ordinary - cheap > 0.25  # and the two are unmistakably different places
+
+
+def test_an_ordinary_home_at_its_own_pockets_rate_stops_reading_as_a_bargain():
+    """The regression test for the whole feature. Without location, a home priced exactly
+    right for where it stands looks underpriced against a market that contains a pricier
+    pocket; with it, the home is judged against its own streets."""
+    model = HedonicModel.fit(two_pocket_market())
+    subject = home("x", 140 * 2400, sqft=2400, lat=27.60, lon=-82.20)  # fair, for its pocket
+
+    blind = model.expected(subject, adjust=False)
+    located = model.expected(subject)
+
+    assert blind.z < -0.8  # a false bargain
+    assert located.z > blind.z + 0.7  # pulled back toward fair
+    assert abs(located.z) < abs(blind.z)
+    assert located.location_pct < -10 and located.location_comps > 0
+    assert located.expected < blind.expected  # the pocket is worth less, and it says so
+
+
+def test_a_home_in_the_premium_pocket_is_not_called_overpriced_for_being_there():
+    """The same correction, the other way round: a home priced at the going rate on the
+    better streets should read as fair, not as a home asking too much."""
+    model = HedonicModel.fit(two_pocket_market())
+    subject = home("y", 280 * 2400, sqft=2400, lat=27.40, lon=-82.40)
+
+    assert model.expected(subject, adjust=False).z > 0.3  # looks dear against the blend
+    assert abs(model.expected(subject).z) < 0.3  # fair, against its own streets
+
+
+def test_a_market_too_small_to_locate_anything_simply_does_not_adjust():
+    """No location field is a fine state to be in — the global fit stands, unmodified, and
+    nothing is invented about a pocket nobody has data for."""
+    model = HedonicModel.fit(synthetic_market(n=MIN_COMPS), min_comps=MIN_COMPS)
+    small = HedonicModel(
+        result=model.result, predictors=model.predictors, sigma=model.sigma,
+        r2=model.r2, n=model.n, basis=model.basis,
+    )
+
+    assert small.location_adjustment(32.74, -97.57) == (0.0, 0)
+    exp = small.expected(home("x", priced(3000), sqft=3000))
+    assert exp.location_pct == 0.0 and exp.location_comps == 0
+
+
+def test_a_home_with_no_coordinates_is_judged_by_size_alone():
+    model = HedonicModel.fit(two_pocket_market())
+    assert model.location_adjustment(None, None) == (0.0, 0)
