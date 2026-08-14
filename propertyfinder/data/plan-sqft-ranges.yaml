@@ -1,0 +1,24 @@
+# What a plan's square footage actually runs to, where the feed reports only its floor.
+#
+# A builder's plan is a range, not a number: the same plan is sold with an optional
+# bedroom over the garage, an extended primary suite, a finished flex room. The feed
+# publishes the BASE — the smallest way the plan can be built — with no hint that it is
+# the bottom of a range. The Walsh audit found one plan listed at 4,121 square feet that
+# runs to 4,896: 775 feet of headroom, roughly a $150,000 difference in ask, invisible to
+# anything that reads the listing.
+#
+# Every plan row therefore carries the `sqft_is_base_of_range` flag whether or not it
+# appears in this file — that is a fact about the feed, not about the plan. This file adds
+# the ceiling where somebody has looked it up, and `dataquality.apply_corrections` puts it
+# on the record as `sqft_max` WITHOUT touching `sqft`: the base is a true number about a
+# real build, so it is joined by the range, never overwritten by it.
+#
+# HOW TO ADD AN ENTRY. Read the range off the builder's own plan page, record the base as
+# the feed states it, and date it. Keys are the address exactly as the feed writes it.
+
+ranges:
+  "GRANTLEY Plan, Walsh Ranch 70'":
+    base: 4121
+    max: 4896
+    source: builder plan page
+    verified_on: "2026-07-26"

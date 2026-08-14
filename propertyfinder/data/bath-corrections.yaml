@@ -1,0 +1,58 @@
+# Bath counts the feed reports wrong, and what the builder's own plan page says.
+#
+# The listing feed rounds half-baths UP, systematically and in one direction only. The
+# July 2026 audit of the seed community read all 68 Walsh plan rows against the builders'
+# published plan pages: 27 disagreed, and every single one of the 27 was the feed
+# reporting a whole bath where the plan sells a half. A market where 1,700 homes contain
+# two half-baths between them is not a market, it is a rounding rule.
+#
+# Nothing here is applied silently. `propertyfinder/dataquality.py` turns each entry into
+# a correction that travels with the record — listed value, verified value, source and
+# date — so a page can show both numbers and a reader can see which one the score used.
+#
+# HOW TO ADD AN ENTRY. Open the builder's own plan page (not a listing aggregator), read
+# the bath count off it, and record both numbers with the date you read them. The `listed`
+# value is not decoration: it is the guard. If the feed later disagrees with it — the
+# builder revised the plan, or the feed fixed itself — the correction is treated as stale
+# and is NOT applied, because a correction that no longer describes what the feed says is
+# a correction to re-verify, not one to trust.
+#
+# Keys are the address exactly as the feed writes it: a plan row's "<plan> Plan,
+# <community>", or a zpid for a one-off correction to a single home.
+
+baths:
+  "GRANTLEY Plan, Walsh Ranch 70'":
+    listed: 5.0
+    verified: 4.5
+    source: builder plan page
+    verified_on: "2026-07-26"
+
+  "BRINKLEY Plan, Walsh Ranch 70'":
+    listed: 5.0
+    verified: 4.5
+    source: builder plan page
+    verified_on: "2026-07-26"
+
+  "The Kennedy II Plan, Walsh":
+    listed: 5.0
+    verified: 4.5
+    source: builder plan page
+    verified_on: "2026-07-26"
+
+  "Camborne Plan, Walsh Cottage":
+    listed: 3.0
+    verified: 2.5
+    source: builder plan page
+    verified_on: "2026-07-26"
+
+  "Daisy Plan, Walsh Classic":
+    listed: 4.0
+    verified: 3.5
+    source: builder plan page
+    verified_on: "2026-07-26"
+
+  "Charleston Plan, Walsh":
+    listed: 4.0
+    verified: 3.5
+    source: builder plan page
+    verified_on: "2026-07-26"

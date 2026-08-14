@@ -1,0 +1,335 @@
+"""Each of the feed's known lies, reproduced from the incident that taught it to us.
+
+The rows below are not invented: the plan names, footages, prices and misspelled street
+are the ones the seed sweeps actually returned. That matters more here than anywhere else
+in the suite — a detection tuned against imaginary data is a detection that has never met
+the thing it claims to catch.
+"""
+import pytest
+
+from propertyfinder.dataquality import (
+    BATH_CORRECTION_STALE,
+    BATHS_CORRECTED,
+    CONFIRMED,
+    DUPLICATE_LISTING,
+    INFERRED,
+    SQFT_IS_BASE_OF_RANGE,
+    SUSPECT_HALF_BATH_ROUNDUP,
+    UNRESOLVED,
+    apply_corrections,
+    assess,
+    attribute_builder,
+    bath_corrections,
+    find_duplicates,
+    plan_sqft_ranges,
+    same_address,
+)
+
+
+def _row(zpid, address, **fields):
+    """One stored row, in the shape `store.latest_snapshot_rows` returns."""
+    return {
+        "zpid": zpid,
+        "address": address,
+        "listing_status": "for_sale",
+        "status_text": "New construction",
+        "price": None,
+        "sqft": None,
+        "beds": None,
+        "baths": None,
+        "first_seen": "2026-07-11T00:00:00Z",
+        **fields,
+    }
+
+
+# -- (a) the half-bath round-up ---------------------------------------------------------
+
+
+def test_the_correction_files_carry_their_provenance():
+    """A correction without a source and a date is tribal knowledge in a YAML costume."""
+    for entry in bath_corrections().values():
+        assert entry["source"] and entry["verified_on"]
+        assert entry["verified"] == entry["listed"] - 0.5  # the feed rounds up, only up
+    for entry in plan_sqft_ranges().values():
+        assert entry["source"] and entry["verified_on"]
+        assert entry["max"] > entry["base"]
+
+
+def test_a_verified_bath_count_travels_with_the_record_and_corrects_a_copy():
+    """GRANTLEY: the feed says five baths, the builder's plan page says four and a half."""
+    row = _row("p1", "GRANTLEY Plan, Walsh Ranch 70'", price=824_200, sqft=4121, baths=5.0)
+
+    quality = assess([row])["p1"]
+
+    assert quality.has(BATHS_CORRECTED)
+    assert quality.corrections["baths"]["listed"] == 5.0
+    assert quality.corrections["baths"]["verified"] == 4.5
+    assert quality.corrections["baths"]["source"]
+
+    corrected = apply_corrections(row, quality)
+    assert corrected["baths"] == 4.5
+    assert row["baths"] == 5.0, "the observation the feed gave is never edited in place"
+    assert corrected is not row
+
+
+def test_a_correction_the_feed_no_longer_matches_is_stale_and_is_not_applied():
+    """The builder revised the plan to four baths. Our note says 'listed 5' — so the note
+    describes a listing that no longer exists, and applying it would invent a number."""
+    row = _row("p1", "GRANTLEY Plan, Walsh Ranch 70'", price=824_200, sqft=4121, baths=4.0)
+
+    quality = assess([row])["p1"]
+
+    assert quality.has(BATH_CORRECTION_STALE)
+    assert not quality.has(BATHS_CORRECTED)
+    assert quality.corrections["baths"]["verified"] is None
+    assert apply_corrections(row, quality)["baths"] == 4.0
+
+
+def test_one_half_bath_in_a_price_list_makes_its_whole_number_siblings_suspect():
+    """The feed printed a .5 for one plan in this community, which proves it can. Every
+    whole-number plan beside it is then suspect — flagged for verification, not corrected.
+    """
+    rows = [
+        _row("a", "PRESLEY III Plan, Walsh Ranch 70'", price=590_200, sqft=2951, baths=3.5),
+        _row("b", "ELLIOT Plan, Walsh Ranch 70'", price=623_000, sqft=3115, baths=4.0),
+        _row("c", "OVERLOOK Plan, Walsh Ranch 70'", price=656_200, sqft=3281, baths=5.0),
+        # A different price list, with no half-bath in it: nothing is proved there.
+        _row("d", "MARANDA Plan, Walsh Ranch 60'", price=509_200, sqft=2546, baths=3.0),
+        # A spec home is not a plan row, and this heuristic is about price lists.
+        _row("e", "1820 Crested Ridge Rd, Aledo, TX 76008", price=694_245, sqft=3482, baths=4.0),
+    ]
+
+    quality = assess(rows)
+
+    assert quality["b"].has(SUSPECT_HALF_BATH_ROUNDUP)
+    assert quality["c"].has(SUSPECT_HALF_BATH_ROUNDUP)
+    assert not quality["a"].has(SUSPECT_HALF_BATH_ROUNDUP)  # the one that printed a half
+    assert not quality["d"].has(SUSPECT_HALF_BATH_ROUNDUP)
+    assert not quality["e"].has(SUSPECT_HALF_BATH_ROUNDUP)
+    # Suspicion is not correction: nothing here changes a bath count.
+    assert apply_corrections(rows[1], quality["b"])["baths"] == 4.0
+
+
+# -- (b) base versus maximum square footage ---------------------------------------------
+
+
+def test_a_plan_row_says_its_footage_is_a_floor_and_carries_the_ceiling_when_known():
+    """4,121 listed, 4,896 real — 775 square feet of headroom the listing never mentions."""
+    plan = _row("p1", "GRANTLEY Plan, Walsh Ranch 70'", price=824_200, sqft=4121, baths=5.0)
+    spec = _row("s1", "1820 Crested Ridge Rd, Aledo, TX 76008", price=694_245, sqft=3482)
+
+    quality = assess([plan, spec])
+
+    assert quality["p1"].has(SQFT_IS_BASE_OF_RANGE)
+    assert quality["p1"].corrections["sqft"] == {
+        "listed": 4121,
+        "sqft_max": 4896,
+        "source": "builder plan page",
+        "verified_on": "2026-07-26",
+    }
+    corrected = apply_corrections(plan, quality["p1"])
+    assert corrected["sqft"] == 4121, "the base is a true number about a real build"
+    assert corrected["sqft_max"] == 4896
+
+    # A spec home is a built house, not a range, and is never flagged.
+    assert not quality["s1"].has(SQFT_IS_BASE_OF_RANGE)
+    assert "sqft" not in quality["s1"].corrections
+
+
+def test_a_plan_with_no_looked_up_range_is_still_flagged():
+    """The flag is a fact about the feed; the ceiling is a fact somebody had to go and
+    read. The first does not wait for the second."""
+    plan = _row("p1", "MARANDA Plan, Walsh Ranch 60'", price=509_200, sqft=2546, baths=3.0)
+
+    quality = assess([plan])["p1"]
+
+    assert quality.has(SQFT_IS_BASE_OF_RANGE)
+    assert "sqft" not in quality.corrections
+    assert "sqft_max" not in apply_corrections(plan, quality)
+
+
+# -- (c) one home, two listings ---------------------------------------------------------
+
+# The real pair, exactly as stored: same price, same footage, same house number, two
+# spellings of one street and two different cities, eleven days apart.
+CRESTED_A = _row(
+    "345829319",
+    "1820 Crested Ridge Rd, Aledo, TX 76008",
+    price=694_245,
+    sqft=3482,
+    beds=4.0,
+    baths=4.0,
+    first_seen="2026-07-26T14:58:09Z",
+)
+CRESTED_B = _row(
+    "464003071",
+    "1820 Crested Rdg, Fort Worth, TX 76008",
+    price=694_245,
+    sqft=3482,
+    beds=4.0,
+    baths=4.0,
+    first_seen="2026-08-06T20:59:52Z",
+)
+
+
+def test_one_home_listed_twice_is_pinned_to_the_listing_it_duplicates():
+    quality = assess([CRESTED_A, CRESTED_B])
+
+    assert quality["464003071"].duplicate_of == "345829319"
+    assert quality["464003071"].has(DUPLICATE_LISTING)
+    assert quality["464003071"].is_duplicate
+    assert quality["345829319"].duplicate_of is None, "the older listing is the real one"
+    assert not quality["345829319"].is_duplicate
+
+
+def test_two_identical_spec_homes_on_one_street_are_two_homes():
+    """14204 and 14217 Fountainhead Cir: same builder, same plan, same $999,900 ask, same
+    3,522 feet, different houses. Matching on street name alone would delete one."""
+    a = _row("d1", "14204 Fountainhead Cir, Fort Worth, TX 76008", price=999_900, sqft=3522)
+    b = _row("d2", "14217 Fountainhead Cir, Fort Worth, TX 76008", price=999_900, sqft=3522)
+
+    assert find_duplicates([a, b]) == {}
+
+
+@pytest.mark.parametrize(
+    "a,b,same",
+    [
+        ("1820 Crested Ridge Rd, Aledo, TX", "1820 Crested Rdg, Fort Worth, TX", True),
+        ("1820 Crested Ridge Rd", "1820 CRESTED RIDGE ROAD", True),
+        ("1820 Crested Ridge Rd", "1820 Crested Creek Rd", False),
+        ("1725 Roundtree Cir E", "1725 Roundtree Cir W", False),  # two arms of one loop
+        ("1725 Roundtree Cir E", "1725 Roundtree Circle E", True),
+    ],
+)
+def test_two_spellings_of_one_street(a, b, same):
+    assert same_address(a, b) is same
+
+
+def test_a_sale_is_not_a_duplicate_of_its_own_listing():
+    """The same home for sale in one watch and sold in another shares price and footage.
+    That is history working, and history is what this tool is for."""
+    for_sale = _row("z1", "1820 Crested Ridge Rd, Aledo, TX", price=694_245, sqft=3482)
+    sold = _row(
+        "z2",
+        "1820 Crested Rdg, Fort Worth, TX",
+        price=694_245,
+        sqft=3482,
+        listing_status="sold",
+        status_text="Sold",
+    )
+
+    assert find_duplicates([for_sale, sold]) == {}
+
+
+def test_rows_missing_a_price_or_a_footage_cannot_be_matched():
+    """Two nulls are not a coincidence worth acting on."""
+    a = _row("z1", "1820 Crested Ridge Rd, Aledo, TX", price=None, sqft=None)
+    b = _row("z2", "1820 Crested Rdg, Fort Worth, TX", price=None, sqft=None)
+
+    assert find_duplicates([a, b]) == {}
+
+
+def test_the_thinner_record_is_the_one_flagged():
+    """Same price, same footage, same address, but one row knows almost nothing about the
+    home. The full record survives even though it is the newer of the two."""
+    thin = _row("thin", "1820 Crested Rdg, Fort Worth, TX", price=694_245, sqft=3482,
+                first_seen="2026-07-01T00:00:00Z")
+    full = _row("full", "1820 Crested Ridge Rd, Aledo, TX", price=694_245, sqft=3482,
+                beds=4.0, baths=4.0, lot_sqft=8712, lat=32.74, lon=-97.56,
+                link="https://example.invalid/1820", days_on_zillow=12,
+                first_seen="2026-08-06T00:00:00Z")
+
+    assert find_duplicates([thin, full]) == {"thin": "full"}
+
+
+# -- (d) who built it -------------------------------------------------------------------
+
+# What a caller knows: each builder's own plan sheets, as the feed writes them.
+PLANS_BY_BUILDER = {
+    "Highland Homes": [
+        _row("h1", "GRANTLEY Plan, Walsh Ranch 70'", price=824_200, sqft=4121),
+        _row("h2", "BRINKLEY Plan, Walsh Ranch 70'", price=842_000, sqft=4210),
+    ],
+    "David Weekley Homes": [
+        _row("w1", "Camborne Plan, Walsh Cottage", price=542_600, sqft=2713),
+        _row("w2", "Huntmere Plan, Walsh Cottage", price=535_800, sqft=2679),
+    ],
+}
+
+
+def test_a_builder_that_names_itself_is_confirmed():
+    row = _row(
+        "s1",
+        "1820 Crested Ridge Rd, Aledo, TX 76008",
+        sqft=3482,
+        description="Beautiful new Highland Homes residence in Walsh Ranch.",
+    )
+    assert attribute_builder(row, PLANS_BY_BUILDER) == ("Highland Homes", CONFIRMED)
+
+
+def test_an_exact_plan_name_infers_its_builder():
+    row = _row("p1", "GRANTLEY Plan, Walsh Ranch 70'", sqft=4121)
+    assert attribute_builder(row, PLANS_BY_BUILDER) == ("Highland Homes", INFERRED)
+
+
+def test_an_exact_footage_match_infers_its_builder():
+    """A spec home's address names no plan, but a builder builds its plans to the foot."""
+    row = _row("s1", "1820 Crested Ridge Rd, Aledo, TX 76008", sqft=2713)
+    assert attribute_builder(row, PLANS_BY_BUILDER) == ("David Weekley Homes", INFERRED)
+
+
+def test_evidence_pointing_at_two_builders_is_not_weaker_evidence():
+    """Both builders happen to sell a 2,713-foot plan, so the footage proves nothing.
+    Nothing is what gets returned."""
+    plans = {
+        **PLANS_BY_BUILDER,
+        "Perry Homes": [_row("q1", "Bartley Plan, Walsh Gardens", price=520_000, sqft=2713)],
+    }
+    row = _row("s1", "1820 Crested Ridge Rd, Aledo, TX 76008", sqft=2713)
+
+    assert attribute_builder(row, plans) == (None, UNRESOLVED)
+
+
+def test_a_market_whose_builders_nobody_has_mapped_resolves_nothing():
+    row = _row("s1", "1820 Crested Ridge Rd, Aledo, TX 76008", sqft=3482)
+    assert attribute_builder(row, {}) == (None, UNRESOLVED)
+    assert assess([row])["s1"].builder_tier == UNRESOLVED
+
+
+def test_assess_carries_the_builder_onto_every_record():
+    rows = [_row("p1", "GRANTLEY Plan, Walsh Ranch 70'", price=824_200, sqft=4121, baths=5.0)]
+
+    quality = assess(rows, plans_by_builder=PLANS_BY_BUILDER)["p1"]
+
+    assert (quality.builder, quality.builder_tier) == ("Highland Homes", INFERRED)
+
+
+# -- the record as a whole --------------------------------------------------------------
+
+
+def test_a_row_with_nothing_wrong_with_it_says_nothing():
+    row = _row("s1", "1820 Crested Ridge Rd, Aledo, TX 76008", price=694_245, sqft=3482,
+               baths=4.0)
+
+    quality = assess([row])["s1"]
+
+    assert quality.flags == ()
+    assert quality.corrections == {}
+    assert apply_corrections(row, quality) == row
+
+
+def test_corrections_can_be_supplied_rather_than_read_from_disk():
+    """The data files are a default, not a dependency — a caller with better knowledge
+    passes it in, and a test never has to edit shipped data to make a point."""
+    row = _row("s1", "1820 Crested Ridge Rd, Aledo, TX 76008", sqft=3482, baths=3.0)
+    supplied = {"s1": {"listed": 3.0, "verified": 2.5, "source": "walk-through",
+                       "verified_on": "2026-08-09"}}
+
+    quality = assess([row], corrections=supplied)["s1"]
+
+    assert quality.has(BATHS_CORRECTED)
+    assert apply_corrections(row, quality)["baths"] == 2.5
+
+
+def test_a_row_with_no_identity_is_skipped_rather_than_keyed_on_nothing():
+    assert assess([_row(None, "1820 Crested Ridge Rd")]) == {}
