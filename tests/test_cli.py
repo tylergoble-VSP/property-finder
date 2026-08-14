@@ -226,3 +226,62 @@ def test_the_sweep_builds_the_schema_it_needs(home):
     client, _ = _client(_market(_row("111", 500_000)))
     assert main(["sweep", "--watch", "walsh-aledo"], client=client) == 0
     assert len(_stored(home)) == 1
+
+
+# -- report, built from whatever sweep has already stored -----------------------------
+
+
+def test_report_writes_a_dated_archive_and_a_canonical_latest(home, capsys):
+    client, _ = _client(_market(_row("111", 500_000)))
+    main(["sweep", "--watch", "walsh-aledo"], client=client)
+    capsys.readouterr()
+
+    assert main(["report", "--watch", "walsh-aledo"]) == 0
+    out = capsys.readouterr().out
+    assert "walsh-aledo: 1 listing(s)" in out
+
+    dated = list((home / "reports").glob("walsh-aledo-*.html"))
+    latest = home / "reports" / "walsh-aledo.html"
+    assert len(dated) == 1
+    assert latest.exists()
+    assert dated[0].read_text() == latest.read_text()
+    assert "111 Walsh Ave, Aledo, TX 76008" in latest.read_text()
+
+
+def test_two_reports_on_the_same_day_are_byte_for_byte_identical(home, monkeypatch):
+    """Idempotence proven the way the rest of this suite proves anything time-shaped: by
+    holding the clock still, exactly as `_daily_clock` holds it moving for sweeps."""
+    client, _ = _client(_market(_row("111", 500_000)))
+    main(["sweep", "--watch", "walsh-aledo"], client=client)
+
+    monkeypatch.setattr(cli, "utc_now_iso", lambda: "2026-07-20T09:00:00Z")
+    assert main(["report", "--watch", "walsh-aledo"]) == 0
+    first = (home / "reports" / "walsh-aledo.html").read_bytes()
+
+    assert main(["report", "--watch", "walsh-aledo"]) == 0
+    second = (home / "reports" / "walsh-aledo.html").read_bytes()
+
+    assert first == second
+
+
+def test_report_with_no_watch_named_covers_every_watch(home):
+    client, _ = _client(_market(_row("111", 500_000)))
+    main(["sweep"], client=client)
+
+    assert main(["report"]) == 0
+    assert (home / "reports" / "walsh-aledo.html").exists()
+    assert (home / "reports" / "walsh-aledo-sold.html").exists()
+
+
+def test_report_degrades_gracefully_with_no_sweep_on_record(home):
+    """A person who runs `report` before ever running `sweep` gets an honest empty page,
+    not a crash and not a lecture about running `sweep` first."""
+    assert main(["report", "--watch", "walsh-aledo"]) == 0
+    page = (home / "reports" / "walsh-aledo.html").read_text()
+    assert '"total":0' in page
+
+
+def test_an_unknown_watch_name_reports_nothing_and_writes_no_files(home, capsys):
+    assert main(["report", "--watch", "nowhere"]) == 1
+    assert "no watch named 'nowhere'" in capsys.readouterr().out
+    assert not (home / "reports").exists()
