@@ -139,6 +139,44 @@ def test_one_bad_query_does_not_stop_the_good_one(make_adapter, caplog):
     assert len([r for r in caplog.records if r.levelno == logging.WARNING]) == 1
 
 
+def test_a_subdivision_watch_drops_in_radius_non_members_and_logs_the_count(
+    make_adapter, caplog
+):
+    """1420 Tolleson Dr and the Jasmine Plan are Walsh; 612 Bearpaw Trl and the Kestrel
+    Way townhouse are not — even though the radius alone would keep all four. Membership
+    runs after geometry, per docs/EXPERT-PLAN.md."""
+    transport = RoutedSearchApi({ALEDO: PAGE1, FORT_WORTH: PAGE2})
+    watch = _watch([ALEDO, FORT_WORTH]).model_copy(update={"subdivision": "walsh"})
+
+    with caplog.at_level(logging.INFO):
+        found = collect_in_radius(make_adapter(transport), watch)
+
+    assert set(found) == {"29584711", "2075294181"}
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("2 in-radius listing(s) dropped by the walsh filter" in m for m in messages)
+
+
+def test_a_watch_without_a_subdivision_is_unaffected_by_membership(make_adapter, caplog):
+    """The same fixtures, no `subdivision` set: geometry alone decides, exactly as
+    before this filter existed."""
+    transport = RoutedSearchApi({ALEDO: PAGE1, FORT_WORTH: PAGE2})
+    with caplog.at_level(logging.INFO):
+        found = collect_in_radius(make_adapter(transport), _watch([ALEDO, FORT_WORTH]))
+
+    assert set(found) == {"29584711", "2075294181", "29584799", "2064118820"}
+    assert not any("dropped by the" in r.getMessage() for r in caplog.records)
+
+
+def test_a_subdivision_with_nothing_to_drop_logs_nothing_extra(make_adapter, caplog):
+    """Every in-radius listing is a member: the filter has nothing to report, and stays
+    quiet rather than logging a zero nobody needs to see."""
+    transport = RoutedSearchApi({ALEDO: PAGE1})
+    watch = _watch([ALEDO]).model_copy(update={"subdivision": "walsh"})
+    with caplog.at_level(logging.INFO):
+        collect_in_radius(make_adapter(transport), watch)
+    assert not any("dropped by the" in r.getMessage() for r in caplog.records)
+
+
 def test_a_sold_watch_asks_the_provider_for_sold_homes(make_adapter):
     """The same seam carries the sold side unchanged — only the status asked for
     differs, which is what makes a sold companion watch a config entry and not code."""

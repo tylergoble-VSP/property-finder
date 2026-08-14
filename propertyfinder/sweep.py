@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from propertyfinder.adapters import Listing, ZillowAdapter
 from propertyfinder.config import Watch
 from propertyfinder.geo import within_radius
+from propertyfinder.segments import in_subdivision
 from propertyfinder.store import (
     previous_snapshot_map,
     record_snapshot,
@@ -41,6 +42,11 @@ def collect_in_radius(
     to know which is right — but the nearer one is the one that decides whether the home
     is in the circle at all, so preferring it keeps the membership decision and the
     stored distance telling the same story.
+
+    When the watch names a `subdivision`, membership is decided **after** geometry: a
+    same-named street in a different town is already excluded by the radius by the time
+    `in_subdivision` is ever asked about it (`segments.py`, `docs/EXPERT-PLAN.md`, "the
+    watch: geometry first, membership second").
     """
     found: dict[str, tuple[Listing, float]] = {}
 
@@ -78,6 +84,20 @@ def collect_in_radius(
                 query,
                 len(listings),
                 watch.radius_miles,
+            )
+
+    if watch.subdivision:
+        before = len(found)
+        found = {
+            zpid: pair for zpid, pair in found.items() if in_subdivision(pair[0], watch.subdivision)
+        }
+        dropped = before - len(found)
+        if dropped:
+            log.info(
+                "watch %s: %d in-radius listing(s) dropped by the %s filter",
+                watch.name,
+                dropped,
+                watch.subdivision,
             )
 
     log.info(
