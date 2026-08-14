@@ -16,3 +16,6 @@ __pycache__/
 reports/
 site/
 logs/
+
+# build artifacts
+propertyfinder.egg-info/
