@@ -8,7 +8,7 @@ the test that depends on it.
 import httpx
 import pytest
 
-from conftest import FakeSearchApi, load_fixture
+from conftest import FakeSearchApi, RecordingSleeper, load_fixture
 
 from propertyfinder.adapters import SchemaDrift, ZillowAdapter, ZillowHTTPError
 from propertyfinder.config import Settings
@@ -155,7 +155,7 @@ def test_a_detail_pull_with_no_data_is_refused_not_half_read(make_adapter):
 def test_from_settings_takes_the_key_from_the_environment(fake_transport):
     settings = Settings(_env_file=None, searchapi_api_key="from-settings")
     adapter = ZillowAdapter.from_settings(
-        settings, client=httpx.Client(transport=fake_transport)
+        settings, client=httpx.Client(transport=fake_transport), sleep=RecordingSleeper()
     )
     adapter.search_page("Aledo, TX 76008")
     assert fake_transport.requests[-1].url.params["api_key"] == "from-settings"

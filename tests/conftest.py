@@ -101,11 +101,27 @@ def fake_transport() -> FakeSearchApi:
     return FakeSearchApi()
 
 
+class RecordingSleeper:
+    """Stands in for the politeness delay: remembers the nap instead of taking it."""
+
+    def __init__(self):
+        self.naps: list[float] = []
+
+    def __call__(self, seconds: float) -> None:
+        self.naps.append(seconds)
+
+
 @pytest.fixture
 def make_adapter(fake_transport):
-    """Build an adapter wired to a fake transport, with a key that is not a key."""
+    """Build an adapter wired to a fake transport, with a key that is not a key.
+
+    The politeness delay is replaced by default — it is real behaviour worth having in
+    production and pure waiting in a test — but any keyword argument may be overridden,
+    including `sleep` and `budget`.
+    """
 
     def _make(transport: httpx.BaseTransport | None = None, **kwargs) -> ZillowAdapter:
+        kwargs.setdefault("sleep", RecordingSleeper())
         client = httpx.Client(transport=transport or fake_transport)
         settings = Settings(_env_file=None, searchapi_api_key="test-key")
         return ZillowAdapter(settings.searchapi_api_key, client=client, **kwargs)
