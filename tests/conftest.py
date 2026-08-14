@@ -25,8 +25,9 @@ from pathlib import Path
 import httpx
 import pytest
 
-from propertyfinder.adapters import ZillowAdapter
-from propertyfinder.config import Settings
+from propertyfinder.adapters import Listing, ZillowAdapter
+from propertyfinder.config import Settings, build_engine
+from propertyfinder.domain import Base
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -127,3 +128,51 @@ def make_adapter(fake_transport):
         return ZillowAdapter(settings.searchapi_api_key, client=client, **kwargs)
 
     return _make
+
+
+# -- the database ---------------------------------------------------------------------
+#
+# A real SQLite file rather than an in-memory one, built by the same `build_engine` the
+# tool uses in production. That matters more than it looks: foreign-key enforcement is a
+# per-connection pragma, and a test on an engine without it would prove that orphan rows
+# are rejected while production quietly accepted them.
+
+
+@pytest.fixture
+def engine(tmp_path):
+    """A throwaway database with the production pragmas switched on."""
+    eng = build_engine(Settings(_env_file=None, db_path=str(tmp_path / "finder.db")))
+    Base.metadata.create_all(eng)
+    return eng
+
+
+@pytest.fixture
+def sessions(engine):
+    """A session factory over that database."""
+    from propertyfinder.store import session_factory
+
+    return session_factory(engine)
+
+
+def make_listing(zpid: str = "29584711", **overrides) -> Listing:
+    """A plausible home, for tests about storage rather than about parsing.
+
+    Defaults describe an ordinary Aledo resale near the watch centre; override the one
+    field the test is actually about and leave the rest alone.
+    """
+    fields = {
+        "address": f"{zpid} Tolleson Dr, Aledo, TX 76008",
+        "lat": 32.741913,
+        "lon": -97.560241,
+        "price": 674900.0,
+        "beds": 4,
+        "baths": 3,
+        "sqft": 3012,
+        "home_type": "SINGLE_FAMILY",
+        "listing_status": "for_sale",
+        "status_text": "House for sale",
+        "days_on_zillow": 27,
+        "link": f"https://www.zillow.com/homedetails/{zpid}_zpid/",
+    }
+    fields.update(overrides)
+    return Listing(zpid=zpid, **fields)
