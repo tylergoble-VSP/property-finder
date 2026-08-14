@@ -1,0 +1,1075 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Property Finder — deal report</title>
+
+<!--
+  The map report. Everything visual lives here, in a real file with real syntax
+  highlighting; everything factual arrives as one JSON payload from mapdata.py through
+  pagebuild.render. The two never mix, which is the whole point of this stage.
+
+  Nothing is fetched at load time except the basemap tiles: Leaflet itself is inlined
+  below, out of the vendor folder beside this file. Read this page on a train and you lose
+  the streets under the markers and nothing else.
+-->
+
+<style>{{VENDOR:leaflet-1.9.4.css}}</style>
+<style>
+  :root {
+    --page: #f6f7f6;
+    --surface: #ffffff;
+    --surface-2: #f0f2ef;
+    --ink: #14171a;
+    --ink-soft: #565f5a;
+    --muted: #838a85;
+    --border: #dfe3de;
+    --hairline: #e9ebe7;
+    --accent: #1f6b3a;
+    --accent-soft: #e6f1ea;
+    --good: #0b6b2e;
+    --bad: #b3261e;
+    /* the verdict scale — one set of colours for the map, the list and the chart, so a
+       green dot always means the same thing wherever a reader meets it */
+    --v-great: #0b6b2e;
+    --v-good: #4a9e63;
+    --v-fair: #c9a13a;
+    --v-over: #b3261e;
+    --v-none: #9aa098;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0e100f;
+      --surface: #181b19;
+      --surface-2: #1f2320;
+      --ink: #f2f4f1;
+      --ink-soft: #c3c9c1;
+      --muted: #8b928a;
+      --border: #2b302b;
+      --hairline: #23261f;
+      --accent: #5cc47e;
+      --accent-soft: #14241a;
+      --good: #5cc47e;
+      --bad: #e6685f;
+      --v-great: #5cc47e;
+      --v-good: #86cf9b;
+      --v-fair: #d9b45c;
+      --v-over: #e6685f;
+      --v-none: #7d857c;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { background: var(--page); }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 15px/1.55 -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 20px; }
+  .eyebrow {
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; margin: 0 0 8px;
+  }
+  h1 { font-size: clamp(26px, 4.5vw, 38px); margin: 0 0 6px; letter-spacing: -.015em; }
+  h2 { font-size: 19px; margin: 0 0 4px; letter-spacing: -.005em; }
+  h3 { font-size: 15px; margin: 0 0 6px; }
+  section { margin: 40px 0; }
+  .lede { color: var(--ink-soft); margin: 0 0 6px; max-width: 78ch; }
+  .hint { color: var(--muted); font-size: 12.5px; margin: 0 0 14px; max-width: 78ch; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 18px;
+  }
+
+  header.hero { padding: 44px 0 8px; border-bottom: 1px solid var(--hairline); }
+  .read { font-size: 17px; line-height: 1.5; margin: 14px 0 4px; max-width: 74ch; }
+  .read b { font-weight: 680; }
+  .up { color: var(--bad); font-weight: 680; }
+  .down { color: var(--good); font-weight: 680; }
+
+  .kpis {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+    gap: 12px; margin: 24px 0 34px;
+  }
+  .kpi {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 13px 15px;
+  }
+  .kpi .v { font-size: 23px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .kpi .r {
+    font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; margin-top: 2px;
+  }
+  .kpi .n { font-size: 12px; color: var(--ink-soft); margin-top: 3px; }
+
+  .move-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;
+  }
+  .move { background: var(--surface); border: 1px solid var(--border);
+          border-radius: 10px; padding: 13px 15px; }
+  .move .n { font-size: 26px; font-weight: 680; font-variant-numeric: tabular-nums; }
+  .move .lbl {
+    font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+  }
+  .move ul { margin: 8px 0 0; padding-left: 16px; font-size: 12.5px; color: var(--ink-soft); }
+  .move li { margin: 2px 0; }
+  .first-sweep { background: var(--accent-soft); }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; }
+  .chip {
+    border: 1px solid var(--border); background: var(--surface); color: var(--ink-soft);
+    border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 600;
+    cursor: pointer; user-select: none;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent);
+                               color: var(--ink); }
+  .chip .swatch {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px;
+  }
+  input[type="search"] {
+    border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+    border-radius: 8px; padding: 6px 11px; font: inherit; font-size: 13px; min-width: 200px;
+  }
+
+  #pf-map {
+    height: 520px; border-radius: 12px; border: 1px solid var(--border); z-index: 0;
+  }
+  .leaflet-container { background: var(--surface-2); font: inherit; }
+  .leaflet-popup-content { margin: 12px 14px; font-size: 13px; }
+  .pop-addr { font-weight: 680; display: block; margin-bottom: 4px; }
+  .pop-line { color: var(--ink-soft); display: block; }
+
+  .deal { border: 1px solid var(--border); background: var(--surface);
+          border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+  .deal-head {
+    display: grid; grid-template-columns: 54px 1fr auto; gap: 14px; align-items: center;
+    padding: 12px 14px; cursor: pointer; width: 100%; border: 0; background: none;
+    color: inherit; font: inherit; text-align: left;
+  }
+  .score {
+    width: 46px; height: 46px; border-radius: 10px; display: grid; place-items: center;
+    color: #fff; font-weight: 720; font-size: 17px; font-variant-numeric: tabular-nums;
+  }
+  .deal-addr { font-weight: 640; }
+  .deal-sub { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+  .deal-right { text-align: right; font-variant-numeric: tabular-nums; }
+  .deal-price { font-weight: 640; }
+  .verdict {
+    font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; font-weight: 700;
+  }
+  .deal-body { padding: 0 14px 16px; border-top: 1px solid var(--hairline); }
+  .ledger { width: 100%; border-collapse: collapse; margin: 12px 0 4px; font-size: 13px; }
+  .ledger td { padding: 6px 8px; border-bottom: 1px solid var(--hairline);
+               vertical-align: top; }
+  .ledger td.pts { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums;
+                   font-weight: 640; width: 62px; }
+  .ledger td.why { color: var(--ink-soft); }
+  .ledger tr.total td { border-bottom: 0; font-weight: 700; }
+  .flags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+  .flag {
+    font-size: 12px; border-radius: 999px; padding: 3px 10px;
+    background: var(--surface-2); border: 1px solid var(--border); color: var(--ink-soft);
+  }
+  .flag.warn { border-color: var(--bad); color: var(--bad); }
+  .flag.data { border-color: var(--accent); color: var(--accent); }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px;
+               background: var(--surface); }
+  table.data { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 13px;
+               font-variant-numeric: tabular-nums; }
+  table.data th {
+    text-align: left; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; padding: 9px 12px;
+    border-bottom: 1px solid var(--hairline); white-space: nowrap;
+  }
+  table.data td { padding: 8px 12px; border-bottom: 1px solid var(--hairline); }
+  table.data tr:last-child td { border-bottom: none; }
+  table.data td.num { text-align: right; white-space: nowrap; }
+
+  .chartwrap { background: var(--surface); border: 1px solid var(--border);
+               border-radius: 12px; padding: 14px; overflow-x: auto; }
+  #pf-chart { display: block; width: 100%; height: auto; min-width: 560px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 10px 2px 0;
+            font-size: 12.5px; color: var(--ink-soft); }
+  .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+                margin-right: 6px; vertical-align: -1px; }
+  .legend .ln { display: inline-block; width: 18px; height: 2px; background: var(--ink);
+                margin-right: 6px; vertical-align: 4px; }
+
+  .prose { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 860px) { .prose { grid-template-columns: 1fr; } }
+  .prose p { margin: 0 0 10px; font-size: 13.5px; color: var(--ink-soft); }
+  .prose p:last-child { margin-bottom: 0; }
+  .prose ul { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--ink-soft); }
+  dl.glossary { margin: 0; font-size: 13.5px; }
+  dl.glossary dt { font-weight: 680; margin-top: 10px; }
+  dl.glossary dt:first-child { margin-top: 0; }
+  dl.glossary dd { margin: 2px 0 0; color: var(--ink-soft); }
+  .assumptions { display: grid; grid-template-columns: auto 1fr; gap: 4px 18px;
+                 margin: 10px 0 0; font-size: 13.5px; }
+  .assumptions dt { color: var(--muted); }
+  .assumptions dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .cite { color: var(--ink-soft); font-size: 12.5px; margin: 10px 0 0; max-width: 80ch;
+          border-left: 2px solid var(--border); padding-left: 12px; }
+
+  a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  a:hover { text-decoration: underline; }
+  .empty { color: var(--muted); font-size: 13.5px; }
+  footer { margin: 44px 0 0; padding: 16px 0 48px; border-top: 1px solid var(--hairline);
+           font-size: 12.5px; color: var(--muted); max-width: 88ch; }
+  footer p { margin: 0 0 6px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Property Finder &middot; deal report</p>
+    <h1 id="pf-title">Loading&hellip;</h1>
+    <p class="lede" id="pf-where"></p>
+    <p class="read" id="pf-read"></p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="kpis" id="pf-kpis"></div>
+
+  <section>
+    <h2>Since the last sweep</h2>
+    <p class="hint">History is the product: a price is a number, a price that fell last
+      Tuesday is information.</p>
+    <div id="pf-movement"></div>
+  </section>
+
+  <section>
+    <h2>The map</h2>
+    <p class="hint" id="pf-map-hint"></p>
+    <div class="filters" id="pf-filters"></div>
+    <div id="pf-map"></div>
+  </section>
+
+  <section>
+    <h2 id="pf-list-title">Ranked by deal score</h2>
+    <p class="hint" id="pf-list-hint"></p>
+    <div id="pf-deals"></div>
+  </section>
+
+  <section id="pf-chart-section" hidden>
+    <h2>Dollars per square foot against size</h2>
+    <p class="hint">Bigger homes always show a lower price per foot — which is why ranking a
+      market on price per foot hands back a list of large houses and calls them bargains.
+      The line is what the fitted model expects at each size, with everything else held at
+      the market&rsquo;s median.</p>
+    <div class="chartwrap"><svg id="pf-chart" viewBox="0 0 900 400" role="img"
+      aria-label="Price per square foot against home size, with the fitted curve"></svg></div>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--v-none)"></span>recent sale</span>
+      <span><span class="sw" style="background:var(--v-great)"></span>GREAT</span>
+      <span><span class="sw" style="background:var(--v-good)"></span>GOOD</span>
+      <span><span class="sw" style="background:var(--v-fair)"></span>FAIR</span>
+      <span><span class="sw" style="background:var(--v-over)"></span>OVERPRICED</span>
+      <span><span class="ln"></span>expected at this size</span>
+    </div>
+  </section>
+
+  <section id="pf-newcon-section" hidden>
+    <h2>The builder&rsquo;s price list</h2>
+    <p class="hint">New construction has different physics: nothing has sold yet, so a spec
+      home is judged against what the builder is asking across its own plans, indexed by
+      size. Incentives &mdash; rate buydowns, closing-cost credits &mdash; are worth a few
+      percent and never appear in a listing. Always worth the phone call.</p>
+    <div class="tablewrap">
+      <table class="data" id="pf-newcon">
+        <thead><tr>
+          <th>Community</th>
+          <th class="num">Plans</th>
+          <th class="num">Median size</th>
+          <th class="num">Median ask / sq ft</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>How every number on this page was made</h2>
+    <p class="hint">The reader this page is written for is a family making a six-figure
+      decision, not an analyst. Nothing below is a number you have to take on trust.</p>
+    <div class="prose">
+      <div class="card">
+        <h3>The score</h3>
+        <p>Each home is read two independent ways against homes that have actually
+          <b>sold</b> nearby, and it only counts as a deal when both agree.</p>
+        <p><b>1 &middot; The fitted market.</b> A regression of price on size, bedrooms,
+          bathrooms and home type over recent sales gives every home an expected price and
+          a <b>z-score</b>: how many widths of the market&rsquo;s own scatter the asking
+          price sits below that expectation. At z &le; &minus;1 a home is priced outside
+          ordinary variation &mdash; statistically underpriced, not merely cheap.</p>
+        <p><b>2 &middot; The nearest sales.</b> The closest recent sales of similar size,
+          ranked by distance and nothing else &mdash; the appraiser&rsquo;s method, kept
+          deliberately independent of the regression so that agreement between them means
+          something.</p>
+        <p>The score starts at <b>50</b> and adds points for statistical value, for both
+          methods agreeing, for time on the market and for observed price cuts. Every card
+          above shows that exact arithmetic, line by line, and the lines add to the score.
+          A score trimmed at the top of the scale writes the trim down as a line too.</p>
+        <ul id="pf-model-notes"></ul>
+      </div>
+      <div class="card">
+        <h3>Glossary</h3>
+        <dl class="glossary">
+          <dt>Deal score (0&ndash;100)</dt>
+          <dd>Negotiating room, not appraised value. 75+ GREAT &middot; 60+ GOOD &middot;
+            45+ FAIR &middot; below that, OVERPRICED.</dd>
+          <dt>z-score</dt>
+          <dd>How far below (negative) or above (positive) the expected price a home lists,
+            measured in widths of the market&rsquo;s own scatter. About &minus;1 is the
+            edge of normal.</dd>
+          <dt>Sold-price basis</dt>
+          <dd>Where sale prices are public they are used directly (<b>disclosed</b>). Texas
+            and other non-disclosure states publish none, so the post-sale estimate &mdash;
+            revised after closing toward what the home fetched &mdash; stands in
+            (<b>proxy</b>), and every figure resting on it says so. This report&rsquo;s
+            basis is in the footer.</dd>
+          <dt>Confidence</dt>
+          <dd>HIGH needs both a thick comp set and a strong fit. A market that discloses no
+            sale prices never reaches it. LOW means verify by hand before acting.</dd>
+          <dt>Location adjustment</dt>
+          <dd>A size-and-shape model cannot see that one pocket is worth more than another,
+            so nearby sales&rsquo; own residuals are smoothed over the map and added back.
+            It moves the yardstick, not the score &mdash; without it, every ordinary house
+            off the golf course reads as a bargain.</dd>
+          <dt>Monthly carry</dt>
+          <dd>What holding the home actually costs each month: loan, property tax,
+            insurance, association dues, and the improvement-district assessment. Two homes
+            at one asking price can differ by hundreds a month, and the district bill is
+            usually why.</dd>
+          <dt>Cut so far</dt>
+          <dd>The first asking price this tool ever recorded against today&rsquo;s
+            &mdash; cumulative, so two cuts and a rise net out to one number.</dd>
+          <dt>Flags</dt>
+          <dd>Reasons a low price may be earned rather than mispriced. They never lower a
+            score; they lower how much of it you should believe.</dd>
+          <dt>New construction</dt>
+          <dd>Scored against the builder&rsquo;s own published plan prices for that size,
+            not against resales. Builder incentives are invisible to a listing feed.</dd>
+        </dl>
+      </div>
+    </div>
+    <div class="card" id="pf-assumptions-card" style="margin-top:16px" hidden>
+      <h3>What a monthly carry assumes</h3>
+      <p class="hint" style="margin-bottom:0">Quoted here rather than buried in a
+        configuration file: an earlier version of this tool ran for weeks on a guessed tax
+        rate, and correcting it moved every monthly figure by hundreds of dollars.</p>
+      <dl class="assumptions" id="pf-assumptions"></dl>
+      <p class="cite" id="pf-tax-cite" hidden></p>
+      <p class="cite" id="pf-assessment-cite" hidden></p>
+    </div>
+  </section>
+
+  <footer>
+    <p id="pf-foot-basis"></p>
+    <p id="pf-foot-model"></p>
+    <p id="pf-foot-source"></p>
+  </footer>
+</div>
+
+<script>{{VENDOR:leaflet-1.9.4.js}}</script>
+<script id="pf-payload" type="application/json">/*__PAYLOAD__*/{}</script>
+<script>
+(function () {
+  "use strict";
+
+  var payload = JSON.parse(document.getElementById("pf-payload").textContent);
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July",
+                "August", "September", "October", "November", "December"];
+
+  // Plain-English names for the data-quality flags mapdata.py emits. The vocabulary lives
+  // here rather than in the payload because it is presentation: the payload says what was
+  // found, the page says it in words a reader has met before.
+  var QUALITY_WORDS = {
+    baths_corrected: "Bath count verified against the builder's own plan page",
+    bath_correction_stale: "A verified bath count exists but no longer matches the feed — re-check",
+    suspect_half_bath_roundup: "Bath count may be rounded up — this feed reports half-baths as whole ones",
+    sqft_is_base_of_range: "Square footage is the base of a range; the plan can be built larger",
+    duplicate_listing: "Listed twice by the feed under two addresses"
+  };
+
+  var BUILDER_WORDS = {
+    CONFIRMED: "named in the listing's own text",
+    INFERRED: "matched to a known plan",
+    UNRESOLVED: "not established"
+  };
+
+  // -- formatting ------------------------------------------------------------------
+
+  function money(n) {
+    if (n === null || n === undefined) return "—";
+    return "$" + Math.round(n).toLocaleString("en-US");
+  }
+  function plain(n) {
+    if (n === null || n === undefined) return "—";
+    return n.toLocaleString("en-US");
+  }
+  function signedPct(n) {
+    if (n === null || n === undefined) return "—";
+    return (n > 0 ? "+" : "") + n.toFixed(0) + "%";
+  }
+  function friendlyDate(iso) {
+    if (!iso) return "";
+    var y = iso.slice(0, 4), m = parseInt(iso.slice(5, 7), 10), d = parseInt(iso.slice(8, 10), 10);
+    return MONTHS[m - 1] + " " + d + ", " + y;
+  }
+  function titleCase(name) {
+    return name.replace(/[-_]/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+  // Colours are read out of the stylesheet rather than repeated here, so the verdict
+  // scale is defined once and the light and dark palettes above stay the only place it
+  // lives. Resolved to real values rather than passed through as var(): these end up on
+  // SVG presentation attributes and inside Leaflet's marker options, and a custom property
+  // is not reliably substituted in either.
+  var THEME = window.getComputedStyle(document.documentElement);
+  function cssVar(name) { return THEME.getPropertyValue(name).trim(); }
+
+  function verdictColor(verdict) {
+    if (verdict === "GREAT") return cssVar("--v-great");
+    if (verdict === "GOOD") return cssVar("--v-good");
+    if (verdict === "FAIR") return cssVar("--v-fair");
+    if (verdict === "OVERPRICED") return cssVar("--v-over");
+    return cssVar("--v-none");
+  }
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  }
+  function addr(row) { return row.address || row.zpid; }
+
+  // -- the header, and the one sentence that says what kind of day this is ----------
+
+  function renderHeader() {
+    var name = titleCase(payload.watch.name);
+    document.title = name + " deal report · " + friendlyDate(payload.generated_ts);
+    document.getElementById("pf-title").textContent = name + " deal report";
+    document.getElementById("pf-where").textContent =
+      friendlyDate(payload.generated_ts) + " · " + payload.counts.active +
+      " active home" + (payload.counts.active === 1 ? "" : "s") + " within " +
+      payload.watch.radius_miles + " miles of " + payload.watch.center_address +
+      (payload.sweep_ts ? ", swept " + payload.sweep_ts.slice(0, 10) : ", never swept");
+  }
+
+  function renderMarketRead() {
+    var read = document.getElementById("pf-read");
+    var listed = payload.medians.price_per_sqft;
+    var baseline = payload.sold_baseline;
+    var soldP50 = baseline && baseline.segments.all ? baseline.segments.all.p50 : null;
+
+    if (!payload.counts.active) {
+      read.textContent = "Nothing is for sale here in the latest sweep, so there is nothing " +
+        "to judge today.";
+      return;
+    }
+
+    read.appendChild(document.createTextNode("The typical home here is listing at "));
+    read.appendChild(el("b", null, money(listed)));
+    read.appendChild(document.createTextNode(" per square foot"));
+
+    if (soldP50) {
+      var gap = (listed - soldP50) / soldP50 * 100;
+      read.appendChild(document.createTextNode(" against a sold baseline of "));
+      read.appendChild(el("b", null, money(soldP50)));
+      read.appendChild(document.createTextNode(" — asking "));
+      read.appendChild(el("span", gap >= 0 ? "up" : "down",
+        Math.abs(gap).toFixed(0) + "% " + (gap >= 0 ? "above" : "below")));
+      read.appendChild(document.createTextNode(" what has actually been selling."));
+    } else {
+      read.appendChild(document.createTextNode(", with no sold comps to measure that against yet."));
+    }
+
+    if (payload.model.fitted) {
+      read.appendChild(document.createTextNode(" "));
+      read.appendChild(el("b", null, String(payload.counts.great_or_good)));
+      read.appendChild(document.createTextNode(
+        (payload.counts.great_or_good === 1 ? " home screens" : " homes screen") +
+        " as a good or great deal today, and "));
+      read.appendChild(el("b", null, String(payload.counts.underpriced)));
+      read.appendChild(document.createTextNode(
+        (payload.counts.underpriced === 1 ? " is" : " are") +
+        " priced below the market's own scatter."));
+    } else {
+      read.appendChild(document.createTextNode(" Nothing is scored: " + payload.model.reason + "."));
+    }
+  }
+
+  function renderKpis() {
+    var baseline = payload.sold_baseline;
+    var soldP50 = baseline && baseline.segments.all ? baseline.segments.all.p50 : null;
+    var soldNote = baseline
+      ? baseline.n_solds + " sales · " +
+        (baseline.basis === "disclosed" ? "real prices" : "post-sale estimates")
+      : "no sold companion watch";
+
+    var cards = [
+      [plain(payload.counts.active), "Active homes", "on the map below"],
+      [money(payload.medians.price), "Median asking price", ""],
+      [money(payload.medians.price_per_sqft), "Median list $ / sq ft", ""],
+      [money(soldP50), "Sold $ / sq ft", soldNote],
+      [payload.model.fitted ? plain(payload.counts.great_or_good) : "—",
+       "Great or good deals", payload.model.fitted ? "score 60 or above" : "not scored"],
+      [payload.model.fitted ? plain(payload.counts.underpriced) : "—",
+       "Statistically underpriced", "z at or below −1"],
+      [money(payload.medians.carry), "Median monthly carry",
+       payload.finance ? "loan, tax, insurance, dues, district" : "no assumptions given"],
+      [plain(payload.medians.days_on_market), "Median days on market", ""]
+    ];
+
+    var host = document.getElementById("pf-kpis");
+    cards.forEach(function (c) {
+      var card = el("div", "kpi");
+      card.appendChild(el("div", "v", c[0]));
+      card.appendChild(el("div", "r", c[1]));
+      if (c[2]) card.appendChild(el("div", "n", c[2]));
+      host.appendChild(card);
+    });
+  }
+
+  // -- the movement strip: the history heartbeat ------------------------------------
+
+  function renderMovement() {
+    var host = document.getElementById("pf-movement");
+    var m = payload.movement;
+
+    if (!m.history_began) {
+      var first = el("div", "card first-sweep");
+      first.appendChild(el("b", null, "History begins today."));
+      first.appendChild(document.createTextNode(
+        " This is the first sweep on record for this watch, so there is nothing yet to " +
+        "compare against. Tomorrow's report will show what came on, what was cut, what " +
+        "changed status and what left."));
+      host.appendChild(first);
+      return;
+    }
+
+    var grid = el("div", "move-grid");
+    [
+      ["New listings", m.new, function (r) { return addr(r) + " — " + money(r.price); }],
+      ["Price cuts", m.cuts, function (r) {
+        return addr(r) + " " + money(r.previous) + " → " + money(r.current) +
+               " (" + money(Math.abs(r.delta)) + " off)";
+      }],
+      ["Status changes", m.status_changes, function (r) {
+        return addr(r) + " — " + (r.previous || "—") + " → " + (r.current || "—");
+      }],
+      ["Off the market", m.gone, function (r) { return addr(r); }]
+    ].forEach(function (bucket) {
+      var box = el("div", "move");
+      box.appendChild(el("div", "n", String(bucket[1].length)));
+      box.appendChild(el("div", "lbl", bucket[0]));
+      var list = el("ul");
+      if (!bucket[1].length) {
+        list.appendChild(el("li", "empty", "none"));
+      } else {
+        bucket[1].slice(0, 5).forEach(function (r) { list.appendChild(el("li", null, bucket[2](r))); });
+        if (bucket[1].length > 5) {
+          list.appendChild(el("li", "empty", "and " + (bucket[1].length - 5) + " more"));
+        }
+      }
+      box.appendChild(list);
+      grid.appendChild(box);
+    });
+    host.appendChild(grid);
+  }
+
+  // -- the map ----------------------------------------------------------------------
+
+  var markers = {};
+
+  function renderMap() {
+    document.getElementById("pf-map-hint").textContent = payload.model.fitted
+      ? "Each home is coloured by its verdict; grey means the feed never described it well " +
+        "enough to judge. Click a marker for the home, or a card below for its arithmetic."
+      : "Markers are grey because nothing on this page is scored — " + payload.model.reason + ".";
+
+    var map = L.map("pf-map", { scrollWheelZoom: false })
+      .setView([payload.watch.lat, payload.watch.lon], 13);
+    var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/rastertiles/" + (dark ? "dark_all" : "voyager") +
+      "/{z}/{x}/{y}{r}.png",
+      { maxZoom: 19, attribution: "&copy; OpenStreetMap, &copy; CARTO" }
+    ).addTo(map);
+
+    L.circle([payload.watch.lat, payload.watch.lon], {
+      radius: payload.watch.radius_miles * 1609.34,
+      color: "#888", weight: 1, fill: false, dashArray: "4 6"
+    }).addTo(map);
+
+    var placed = [];
+    payload.listings.forEach(function (row) {
+      if (row.lat === null || row.lon === null) return;
+      var verdict = row.deal ? row.deal.verdict : null;
+      var marker = L.circleMarker([row.lat, row.lon], {
+        radius: 8, weight: 1.5, color: "#fff", fillColor: verdictColor(verdict), fillOpacity: 0.95
+      }).addTo(map);
+      marker.bindPopup(popup(row));
+      markers[row.zpid] = marker;
+      placed.push([row.lat, row.lon]);
+    });
+    if (placed.length) map.fitBounds(placed, { padding: [30, 30], maxZoom: 15 });
+  }
+
+  function popup(row) {
+    var box = el("div");
+    box.appendChild(el("span", "pop-addr", addr(row)));
+    box.appendChild(el("span", "pop-line",
+      money(row.price) + (row.sqft ? " · " + plain(row.sqft) + " sq ft" : "") +
+      (row.price_per_sqft ? " · " + money(row.price_per_sqft) + "/sq ft" : "")));
+    box.appendChild(el("span", "pop-line", row.deal
+      ? row.deal.verdict + " · score " + row.deal.score + " · " + row.deal.confidence + " confidence"
+      : "not scored"));
+    if (row.carry) {
+      box.appendChild(el("span", "pop-line", money(row.carry.total) + " a month, all in"));
+    }
+    if (row.link) {
+      var a = el("a", null, "Open the listing");
+      a.href = row.link; a.target = "_blank"; a.rel = "noopener";
+      box.appendChild(a);
+    }
+    return box;
+  }
+
+  // -- filters, shared by the map and the list --------------------------------------
+
+  var VERDICTS = ["GREAT", "GOOD", "FAIR", "OVERPRICED", "not scored"];
+  var active = {};
+  var query = "";
+
+  function matches(row) {
+    var verdict = row.deal ? row.deal.verdict : "not scored";
+    if (Object.keys(active).length && !active[verdict]) return false;
+    if (query && (addr(row) || "").toLowerCase().indexOf(query) === -1) return false;
+    return true;
+  }
+
+  function applyFilters() {
+    var shown = payload.listings.filter(matches);
+    renderDeals(shown);
+    var visible = {};
+    shown.forEach(function (row) { visible[row.zpid] = true; });
+    Object.keys(markers).forEach(function (zpid) {
+      markers[zpid].setStyle({ opacity: visible[zpid] ? 1 : 0.12,
+                               fillOpacity: visible[zpid] ? 0.95 : 0.08 });
+    });
+  }
+
+  function renderFilters() {
+    var host = document.getElementById("pf-filters");
+    VERDICTS.forEach(function (verdict) {
+      var count = payload.listings.filter(function (r) {
+        return (r.deal ? r.deal.verdict : "not scored") === verdict;
+      }).length;
+      if (!count) return;
+      var chip = el("button", "chip");
+      chip.type = "button";
+      chip.setAttribute("aria-pressed", "false");
+      var swatch = el("span", "swatch");
+      swatch.style.background = verdictColor(verdict === "not scored" ? null : verdict);
+      chip.appendChild(swatch);
+      chip.appendChild(document.createTextNode(verdict + " (" + count + ")"));
+      chip.addEventListener("click", function () {
+        if (active[verdict]) { delete active[verdict]; } else { active[verdict] = true; }
+        chip.setAttribute("aria-pressed", active[verdict] ? "true" : "false");
+        applyFilters();
+      });
+      host.appendChild(chip);
+    });
+
+    var search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "Filter by address…";
+    search.addEventListener("input", function () {
+      query = search.value.trim().toLowerCase();
+      applyFilters();
+    });
+    host.appendChild(search);
+  }
+
+  // -- the ranked list, each card opening onto its own arithmetic --------------------
+
+  function renderDeals(rows) {
+    var host = document.getElementById("pf-deals");
+    host.textContent = "";
+    if (!rows.length) {
+      host.appendChild(el("p", "empty", "No home matches these filters."));
+      return;
+    }
+    rows.forEach(function (row) { host.appendChild(dealCard(row)); });
+  }
+
+  function dealCard(row) {
+    var card = el("div", "deal");
+    var head = el("button", "deal-head");
+    head.type = "button";
+
+    var badge = el("div", "score", row.deal ? String(Math.round(row.deal.score)) : "—");
+    badge.style.background = verdictColor(row.deal ? row.deal.verdict : null);
+    head.appendChild(badge);
+
+    var middle = el("div");
+    middle.appendChild(el("div", "deal-addr", addr(row)));
+    var facts = [];
+    if (row.beds) facts.push(row.beds + " bd");
+    if (row.baths) facts.push(row.baths + " ba");
+    if (row.sqft) facts.push(plain(row.sqft) + " sq ft");
+    if (row.days_on_market !== null && row.days_on_market !== undefined) {
+      facts.push(row.days_on_market + " days on market");
+    }
+    if (row.price_cut_dollars) facts.push(money(row.price_cut_dollars) + " cut so far");
+    if (row.carry) facts.push(money(row.carry.total) + "/mo");
+    middle.appendChild(el("div", "deal-sub", facts.join(" · ")));
+    head.appendChild(middle);
+
+    var right = el("div", "deal-right");
+    right.appendChild(el("div", "deal-price", money(row.price)));
+    var verdict = el("div", "verdict", row.deal ? row.deal.verdict : "not scored");
+    verdict.style.color = verdictColor(row.deal ? row.deal.verdict : null);
+    right.appendChild(verdict);
+    head.appendChild(right);
+
+    var body = el("div", "deal-body");
+    body.hidden = true;
+    body.appendChild(dealBody(row));
+
+    head.setAttribute("aria-expanded", "false");
+    head.addEventListener("click", function () {
+      body.hidden = !body.hidden;
+      head.setAttribute("aria-expanded", body.hidden ? "false" : "true");
+      if (!body.hidden && markers[row.zpid]) markers[row.zpid].openPopup();
+    });
+
+    card.appendChild(head);
+    card.appendChild(body);
+    return card;
+  }
+
+  function dealBody(row) {
+    var box = el("div");
+    var deal = row.deal;
+
+    if (!deal) {
+      box.appendChild(el("p", "hint", payload.model.fitted
+        ? "Not scored: the feed never gave this home the price, size, bedroom count or " +
+          "coordinates the model needs. That is a gap in the data, not a judgement about " +
+          "the house."
+        : "Not scored: " + payload.model.reason + "."));
+    } else {
+      box.appendChild(ledgerTable(deal));
+      if (deal.track === "resale" && deal.fit) {
+        box.appendChild(el("p", "hint",
+          "Expected " + money(deal.fit.expected) + " for a home like this, with ordinary " +
+          "variation running " + money(deal.fit.lo) + " to " + money(deal.fit.hi) + ". " +
+          "This one asks " + money(row.price) + " — " + signedPct(deal.fit.discount_pct) +
+          " against expectation, " + deal.fit.z.toFixed(2) + " standard deviations out. " +
+          (deal.fit.location_comps
+            ? "Nearby sales run " + signedPct(deal.fit.location_pct) +
+              " against the size model, and that is already folded in. "
+            : "") +
+          "Judged on the " + deal.fit.model + " model; " + deal.confidence + " confidence."));
+      }
+      if (deal.track === "newcon" && deal.ask) {
+        box.appendChild(el("p", "hint",
+          "The builder asks about " + money(deal.ask.ppsf) + " a square foot for a home " +
+          "this size" +
+          (deal.ask.basis === "band"
+            ? " (from " + deal.ask.n_in_band + " plans of comparable size)."
+            : " (from the whole community price list — no plan is close in size, which is " +
+              "why this reads as low confidence).") +
+          " " + deal.confidence + " confidence."));
+      }
+      if (deal.comps && deal.comps.length) box.appendChild(compsTable(deal.comps));
+    }
+
+    var chips = flagChips(row);
+    if (chips) box.appendChild(chips);
+
+    if (row.link) {
+      var p = el("p", "hint");
+      var a = el("a", null, "Open the listing");
+      a.href = row.link; a.target = "_blank"; a.rel = "noopener";
+      p.appendChild(a);
+      box.appendChild(p);
+    }
+    return box;
+  }
+
+  function ledgerTable(deal) {
+    var table = el("table", "ledger");
+    var body = el("tbody");
+    deal.ledger.forEach(function (line) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, line.label));
+      tr.appendChild(el("td", "pts", (line.points > 0 ? "+" : "") + line.points));
+      tr.appendChild(el("td", "why", line.detail));
+      body.appendChild(tr);
+    });
+    var total = el("tr", "total");
+    total.appendChild(el("td", null, deal.verdict));
+    total.appendChild(el("td", "pts", String(deal.score)));
+    total.appendChild(el("td", "why", "out of 100 — negotiating room, not appraised value"));
+    body.appendChild(total);
+    table.appendChild(body);
+    return table;
+  }
+
+  function compsTable(comps) {
+    var wrap = el("div", "tablewrap");
+    var table = el("table", "data");
+    var head = el("thead");
+    var hr = el("tr");
+    ["Nearby sale", "Distance", "Size", "Sold", "$ / sq ft"].forEach(function (label, i) {
+      var th = el("th", i ? "num" : null, label);
+      hr.appendChild(th);
+    });
+    head.appendChild(hr);
+    table.appendChild(head);
+
+    var body = el("tbody");
+    comps.forEach(function (comp) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, comp.address || comp.zpid));
+      tr.appendChild(el("td", "num", comp.distance_mi.toFixed(2) + " mi"));
+      tr.appendChild(el("td", "num", plain(comp.sqft)));
+      tr.appendChild(el("td", "num", money(comp.price)));
+      tr.appendChild(el("td", "num", money(comp.ppsf)));
+      body.appendChild(tr);
+    });
+    table.appendChild(body);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  function flagChips(row) {
+    var chips = el("div", "flags");
+    var any = false;
+
+    if (row.deal && row.deal.flags) {
+      row.deal.flags.forEach(function (text) {
+        chips.appendChild(el("span", "flag warn", "⚠ " + text));
+        any = true;
+      });
+    }
+    var quality = row.quality;
+    if (quality) {
+      quality.flags.forEach(function (flag) {
+        chips.appendChild(el("span", "flag data", QUALITY_WORDS[flag] || flag));
+        any = true;
+      });
+      var baths = quality.corrections.baths;
+      if (baths && baths.verified !== null && baths.verified !== undefined) {
+        chips.appendChild(el("span", "flag data",
+          "Baths: feed says " + baths.listed + ", verified " + baths.verified +
+          " (" + (baths.source || "verified") + ", " + (baths.verified_on || "undated") + ")"));
+        any = true;
+      }
+      if (quality.builder) {
+        chips.appendChild(el("span", "flag data",
+          "Builder: " + quality.builder + " — " +
+          (BUILDER_WORDS[quality.builder_tier] || quality.builder_tier)));
+        any = true;
+      }
+    }
+    if (row.sqft_max) {
+      chips.appendChild(el("span", "flag data",
+        "Plan runs to " + plain(row.sqft_max) + " sq ft with options"));
+      any = true;
+    }
+    return any ? chips : null;
+  }
+
+  // -- the money chart, drawn by hand because a chart library is a page weight -------
+
+  var SVG = "http://www.w3.org/2000/svg";
+
+  function svg(tag, attrs) {
+    var node = document.createElementNS(SVG, tag);
+    Object.keys(attrs).forEach(function (k) { node.setAttribute(k, attrs[k]); });
+    return node;
+  }
+
+  function renderChart() {
+    if (!payload.curve.length) return;
+    document.getElementById("pf-chart-section").hidden = false;
+
+    var chart = document.getElementById("pf-chart");
+    var W = 900, H = 400, L = 68, R = 18, T = 16, B = 44;
+    var actives = payload.listings.filter(function (r) { return r.sqft && r.price_per_sqft; });
+    var points = payload.solds.concat(
+      actives.map(function (r) { return { sqft: r.sqft, ppsf: r.price_per_sqft }; })
+    ).concat(payload.curve);
+
+    var xs = points.map(function (p) { return p.sqft; });
+    var ys = points.map(function (p) { return p.ppsf; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var pad = (y1 - y0) * 0.08;  // measured once, so the axis pads evenly at both ends
+    y0 = Math.max(0, y0 - pad);
+    y1 = y1 + pad;
+
+    function px(v) { return L + (v - x0) / ((x1 - x0) || 1) * (W - L - R); }
+    function py(v) { return H - B - (v - y0) / ((y1 - y0) || 1) * (H - T - B); }
+
+    // axes: five gridlines a side, labelled, because an unlabelled axis is decoration
+    for (var i = 0; i <= 4; i++) {
+      var yv = y0 + (y1 - y0) * i / 4;
+      chart.appendChild(svg("line", {
+        x1: L, x2: W - R, y1: py(yv), y2: py(yv),
+        stroke: "currentColor", "stroke-opacity": 0.12
+      }));
+      var yl = svg("text", { x: L - 8, y: py(yv) + 4, "text-anchor": "end",
+                             "font-size": 11, fill: "currentColor", "fill-opacity": 0.6 });
+      yl.textContent = "$" + Math.round(yv);
+      chart.appendChild(yl);
+
+      var xv = x0 + (x1 - x0) * i / 4;
+      var xl = svg("text", { x: px(xv), y: H - B + 18, "text-anchor": "middle",
+                             "font-size": 11, fill: "currentColor", "fill-opacity": 0.6 });
+      xl.textContent = Math.round(xv).toLocaleString("en-US");
+      chart.appendChild(xl);
+    }
+    var xt = svg("text", { x: (L + W - R) / 2, y: H - 6, "text-anchor": "middle",
+                           "font-size": 11.5, fill: "currentColor", "fill-opacity": 0.6 });
+    xt.textContent = "square feet";
+    chart.appendChild(xt);
+
+    payload.solds.forEach(function (p) {
+      chart.appendChild(svg("circle", {
+        cx: px(p.sqft), cy: py(p.ppsf), r: 3.2,
+        fill: cssVar("--v-none"), "fill-opacity": 0.5
+      }));
+    });
+
+    var path = payload.curve.map(function (p, i) {
+      return (i ? "L" : "M") + px(p.sqft).toFixed(1) + " " + py(p.ppsf).toFixed(1);
+    }).join(" ");
+    chart.appendChild(svg("path", {
+      d: path, fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-opacity": 0.8
+    }));
+
+    actives.forEach(function (r) {
+      var dot = svg("circle", {
+        cx: px(r.sqft), cy: py(r.price_per_sqft), r: 5.5,
+        fill: verdictColor(r.deal ? r.deal.verdict : null),
+        stroke: cssVar("--surface"), "stroke-width": 1.5
+      });
+      var title = svg("title", {});
+      title.textContent = addr(r) + " — " + money(r.price) + ", " +
+        money(r.price_per_sqft) + " per square foot";
+      dot.appendChild(title);
+      chart.appendChild(dot);
+    });
+  }
+
+  // -- new construction, methodology, footer ----------------------------------------
+
+  function renderNewcon() {
+    if (!payload.newcon) return;
+    document.getElementById("pf-newcon-section").hidden = false;
+    var body = document.querySelector("#pf-newcon tbody");
+    payload.newcon.communities.forEach(function (c) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, c.community));
+      tr.appendChild(el("td", "num", plain(c.n)));
+      tr.appendChild(el("td", "num", plain(Math.round(c.sqft_p50))));
+      tr.appendChild(el("td", "num", money(c.ppsf_p50)));
+      body.appendChild(tr);
+    });
+  }
+
+  function renderMethodology() {
+    var notes = document.getElementById("pf-model-notes");
+    (payload.model.fitted ? payload.model.notes : [payload.model.reason]).forEach(function (line) {
+      notes.appendChild(el("li", null, line));
+    });
+
+    var fin = payload.finance;
+    if (!fin) return;
+    document.getElementById("pf-assumptions-card").hidden = false;
+
+    var district = fin.special_assessment || {};
+    var districtLine = district.flat_annual !== null && district.flat_annual !== undefined
+      ? money(district.flat_annual) + " a year, a flat bill per lot"
+      : (district.pct !== null && district.pct !== undefined
+          ? district.pct + "% of value a year"
+          : "none in this market");
+
+    var list = document.getElementById("pf-assumptions");
+    [
+      ["Mortgage rate", fin.mortgage_rate + "%, fixed"],
+      ["Down payment", fin.down_pct + "%"],
+      ["Loan term", fin.loan_term_years + " years"],
+      ["Property tax rate", fin.default_tax_rate + "% of value a year"],
+      ["Improvement district", districtLine],
+      ["Insurance", "$" + fin.insurance_annual_per_1000 + " a year per $1,000 of value"],
+      ["Association dues", money(fin.hoa_default_monthly) + " a month where unknown"]
+    ].forEach(function (pair) {
+      list.appendChild(el("dt", null, pair[0]));
+      list.appendChild(el("dd", null, pair[1]));
+    });
+
+    if (fin.tax_rate_citation) {
+      var tax = document.getElementById("pf-tax-cite");
+      tax.textContent = "Tax rate: " + fin.tax_rate_citation;
+      tax.hidden = false;
+    }
+    if (district.citation) {
+      var cite = document.getElementById("pf-assessment-cite");
+      cite.textContent = "District assessment: " + district.citation;
+      cite.hidden = false;
+    }
+  }
+
+  function renderFooter() {
+    var baseline = payload.sold_baseline;
+    document.getElementById("pf-foot-basis").textContent = baseline
+      ? "Sold-price basis: " + baseline.basis + " — " + baseline.price_disclosed + " of " +
+        baseline.n_solds + " sales in " + baseline.watch_name + " published a real price. " +
+        (baseline.basis === "proxy"
+          ? "This state discloses none, so the post-sale estimate stands in and every figure " +
+            "resting on it carries that caveat."
+          : "Every figure here rests on real recorded prices.")
+      : "No sold companion watch is configured, so nothing on this page is valued against sales.";
+
+    document.getElementById("pf-foot-model").textContent = payload.model.fitted
+      ? "Model: " + payload.model.kind + ", fitted on " + payload.model.n + " sales, " +
+        "explaining " + Math.round(payload.model.r2 * 100) + "% of their variation" +
+        (payload.model.located ? ", with a location adjustment from nearby sales." : ".")
+      : "No valuation model: " + payload.model.reason + ".";
+
+    document.getElementById("pf-foot-source").textContent =
+      "Source: Zillow via SearchApi.io · " + payload.counts.plan_sheets +
+      " builder plan row(s) held out of the listings as an ask curve · " +
+      payload.counts.duplicates_dropped + " duplicate listing(s) dropped · generated " +
+      payload.generated_ts;
+  }
+
+  renderHeader();
+  renderMarketRead();
+  renderKpis();
+  renderMovement();
+  renderMap();
+  renderFilters();
+  renderDeals(payload.listings);
+  renderChart();
+  renderNewcon();
+  renderMethodology();
+  renderFooter();
+})();
+</script>
+</body>
+</html>

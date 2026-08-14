@@ -40,6 +40,13 @@ include = ["propertyfinder*"]
 
 # `templates/` and `data/` hold no Python, so `find` alone would leave their contents
 # behind on install. Naming them here is what lets `pagebuild.render` and `segments.py`
-# find their files from an installed wheel and not just from a checkout.
+# find their files from an installed wheel and not just from a checkout. `templates/vendor`
+# is the same rule one level down: a wheel without Leaflet in it builds a map page whose
+# map is a grey rectangle.
 [tool.setuptools.package-data]
-propertyfinder = ["templates/*.html", "data/*.yaml"]
+propertyfinder = [
+    "templates/*.html",
+    "templates/vendor/*.js",
+    "templates/vendor/*.css",
+    "data/*.yaml",
+]
