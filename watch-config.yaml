@@ -1,0 +1,35 @@
+# Property Finder — market watches. Each pins a centre point and a radius; the queries
+# (always "City, ST ZIP" — never a bare ZIP, which mis-resolves) are swept, deduplicated
+# per home, and filtered to the radius. The radius is authoritative.
+currency: USD
+
+watches:
+  # The Walsh master-planned community, west of Fort Worth. The subdivision filter
+  # (built at Stage 9) narrows the circle to actual members; until then the radius
+  # alone bounds the sweep. max_pages tuned against the monthly quota — see
+  # docs/EXPERT-PLAN.md, "The budget is an object".
+  - name: walsh-aledo
+    center_address: "2112 Eastus Ln, Aledo, TX 76008"
+    lat: 32.73665
+    lon: -97.55626
+    radius_miles: 2.0
+    listing_status: for_sale
+    max_pages: 12
+    queries: ["Aledo, TX 76008"]
+    subdivision: walsh
+    filters: {}
+
+  # Sold companion (paired with walsh-aledo by the <name>-sold convention). Texas is a
+  # non-disclosure state: expect price to be null on most sold rows; the re-anchored
+  # estimate serves as the $/sqft proxy, and everything derived from it is labelled
+  # basis="proxy". What IS reliable here: date sold, size, beds, days on market.
+  - name: walsh-aledo-sold
+    center_address: "2112 Eastus Ln, Aledo, TX 76008"
+    lat: 32.73665
+    lon: -97.55626
+    radius_miles: 2.0
+    listing_status: sold
+    max_pages: 20
+    queries: ["Aledo, TX 76008"]
+    subdivision: walsh
+    filters: {}

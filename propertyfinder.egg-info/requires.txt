@@ -1,0 +1,15 @@
+httpx
+pydantic>=2
+pydantic-settings
+sqlalchemy>=2
+pyyaml
+
+[dev]
+pytest
+
+[stats]
+numpy>=2
+scipy>=1.11
+scikit-learn>=1.4
+statsmodels>=0.14
+pandas>=2

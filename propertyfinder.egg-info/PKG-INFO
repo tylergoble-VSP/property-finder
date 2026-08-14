@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: propertyfinder
+Version: 0.1.0
+Summary: A housing-market watcher: sweep listings daily, remember everything, compare, and publish what changed
+Requires-Python: >=3.11
+Requires-Dist: httpx
+Requires-Dist: pydantic>=2
+Requires-Dist: pydantic-settings
+Requires-Dist: sqlalchemy>=2
+Requires-Dist: pyyaml
+Provides-Extra: stats
+Requires-Dist: numpy>=2; extra == "stats"
+Requires-Dist: scipy>=1.11; extra == "stats"
+Requires-Dist: scikit-learn>=1.4; extra == "stats"
+Requires-Dist: statsmodels>=0.14; extra == "stats"
+Requires-Dist: pandas>=2; extra == "stats"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"

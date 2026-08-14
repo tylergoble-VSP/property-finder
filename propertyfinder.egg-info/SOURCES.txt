@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+propertyfinder/__init__.py
+propertyfinder.egg-info/PKG-INFO
+propertyfinder.egg-info/SOURCES.txt
+propertyfinder.egg-info/dependency_links.txt
+propertyfinder.egg-info/entry_points.txt
+propertyfinder.egg-info/requires.txt
+propertyfinder.egg-info/top_level.txt
