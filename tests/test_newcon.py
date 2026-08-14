@@ -6,6 +6,7 @@ rule about scraped text and a made-up address would only prove it works on made-
 """
 from conftest import make_listing
 
+from propertyfinder.dataquality import BATHS_CORRECTED
 from propertyfinder.newcon import (
     CommunityAsk,
     compute_plan_baseline,
@@ -13,8 +14,9 @@ from propertyfinder.newcon import (
     is_spec,
     plan_community,
     plan_name,
+    score_specs,
 )
-from propertyfinder.store import record_snapshot, upsert_property
+from propertyfinder.store import latest_snapshot_rows, record_snapshot, upsert_property
 
 NOW = "2026-07-10T00:00:00Z"
 WATCH = "walsh-aledo"
@@ -184,3 +186,203 @@ def test_a_watch_with_no_price_list_has_no_comp_to_give(sessions):
     assert baseline.n_plans == 0
     assert baseline.communities == ()
     assert baseline.comparable_ppsf(3000) == (None, 0, "none")
+
+
+# -- scoring a spec against that curve --------------------------------------------------
+
+# Five plans at 2,000 feet and $200 a foot: a price list specific enough to judge a
+# 2,000-foot spec home against.
+PRICE_LIST = [
+    (f"p{i}", f"P{i} Plan, Walsh Ranch 60'", 400_000, 2000) for i in range(5)
+]
+
+
+def _scored(sessions, watch=WATCH, **kwargs):
+    with sessions() as s:
+        cards = score_specs(s, watch, compute_plan_baseline(s, watch), **kwargs)
+    return {card.zpid: card for card in cards}
+
+
+def _stored(sessions, zpid, watch=WATCH):
+    """The row as the database still holds it — corrections must never have reached it."""
+    with sessions() as s:
+        return next(r for r in latest_snapshot_rows(s, watch) if r["zpid"] == zpid)
+
+
+def test_a_spec_under_the_builders_own_ask_and_sitting_unsold_is_a_deal(sessions):
+    _record(
+        sessions,
+        [
+            *[_plan(*p) for p in PRICE_LIST],
+            # 10% under the plan ask for its size, and three months unsold.
+            _spec("cheap", "1820 Crested Ridge Rd, Aledo, TX 76008", 360_000, 2000, dom=90),
+            # The list price, fresh on the market.
+            _spec("full", "1901 Crested Ridge Rd, Aledo, TX 76008", 400_000, 2000, dom=10),
+        ],
+    )
+    cards = _scored(sessions)
+
+    cheap = cards["cheap"]
+    assert round(cheap.discount_pct) == 10
+    # 50 + (4 × 10, capped at 25) + 8 for sitting = 83
+    assert cheap.score == 83.0
+    assert cheap.verdict == "GREAT"
+    assert cheap.confidence == "HIGH"  # five plans of comparable size set the comp
+    assert cheap.ledger_total() == cheap.score, "the ledger sums to the score exactly"
+    assert [line.label for line in cheap.ledger] == [
+        "Starting point",
+        "Against the builder's ask",
+        "Sitting unsold",
+    ]
+
+    full = cards["full"]
+    assert full.score == 50.0 and full.verdict == "FAIR"
+
+
+def test_asking_more_than_the_price_list_costs_points(sessions):
+    _record(
+        sessions,
+        [
+            *[_plan(*p) for p in PRICE_LIST],
+            _spec("dear", "1928 Crested Ridge Rd, Aledo, TX 76008", 480_000, 2000),
+        ],
+    )
+    card = _scored(sessions)["dear"]
+
+    assert round(card.discount_pct) == -20
+    assert card.score == 25.0  # 50 − 25, the cap biting in both directions
+    assert card.verdict == "OVERPRICED"
+    assert "capped" in card.ledger[1].detail
+
+
+def test_an_observed_cut_is_worth_more_than_a_shallow_one(sessions):
+    """Cuts come out of history, so this is two sweeps: a first ask, then a lower one."""
+    _record(sessions, [*[_plan(*p) for p in PRICE_LIST]])
+    _record(
+        sessions,
+        [
+            _spec("deep", "1725 Crested Ridge Rd, Aledo, TX 76008", 400_000, 2000),
+            _spec("shallow", "1727 Crested Ridge Rd, Aledo, TX 76008", 400_000, 2000),
+        ],
+        ts="2026-07-01T00:00:00Z",
+    )
+    _record(
+        sessions,
+        [
+            _spec("deep", "1725 Crested Ridge Rd, Aledo, TX 76008", 380_000, 2000),  # −5%
+            _spec("shallow", "1727 Crested Ridge Rd, Aledo, TX 76008", 396_000, 2000),  # −1%
+        ],
+        ts="2026-07-08T00:00:00Z",
+    )
+    cards = _scored(sessions)
+
+    # deep: 50 + (5% under the ask × 4 = 20) + 12 for the cut
+    assert cards["deep"].score == 82.0
+    assert cards["deep"].ledger[-1].points == 12.0
+    # shallow: 50 + (1% × 4) + 8
+    assert cards["shallow"].score == 62.0
+    assert cards["shallow"].ledger[-1].points == 8.0
+
+
+def test_a_thin_price_list_scores_but_says_it_is_unsure(sessions):
+    _record(
+        sessions,
+        [
+            _plan("p1", "BRENNER Plan, Walsh Ranch 60'", 552_200, 2761),
+            _spec("s1", "1820 Crested Ridge Rd, Aledo, TX 76008", 694_245, 3482),
+        ],
+    )
+    card = _scored(sessions)["s1"]
+
+    assert card.confidence == "LOW"
+    assert card.comp.basis == "community"
+    assert "no plan being close in size" in card.ledger[1].detail
+
+
+def test_a_spec_the_feed_priced_at_nothing_is_not_scored_on_a_guess(sessions):
+    _record(
+        sessions,
+        [
+            *[_plan(*p) for p in PRICE_LIST],
+            _spec("nopricing", "1820 Crested Ridge Rd, Aledo, TX 76008", None, 2000),
+        ],
+    )
+    card = _scored(sessions)["nopricing"]
+
+    assert card.discount_pct is None
+    assert card.score == 50.0
+    assert "not scored" in card.ledger[1].detail
+
+
+def test_plan_rows_and_resales_are_not_spec_homes(sessions):
+    _record(
+        sessions,
+        [
+            *[_plan(*p) for p in PRICE_LIST],
+            make_listing("resale", price=674_900, sqft=3012, status_text="House for sale"),
+        ],
+    )
+    assert _scored(sessions) == {}
+
+
+def test_a_home_the_feed_listed_twice_takes_one_place_on_the_board(sessions):
+    """The real incident, scored: 1820 Crested Ridge Rd and 1820 Crested Rdg are one
+    house at one price, and a leaderboard showing both is wrong where readers can see."""
+    _record(
+        sessions,
+        [
+            *[_plan(*p) for p in PRICE_LIST],
+            _spec("345829319", "1820 Crested Ridge Rd, Aledo, TX 76008", 360_000, 2000),
+            _spec("464003071", "1820 Crested Rdg, Fort Worth, TX 76008", 360_000, 2000),
+        ],
+    )
+    cards = _scored(sessions)
+
+    assert set(cards) == {"345829319"}
+
+
+def test_a_verified_bath_count_is_what_the_card_reports(sessions):
+    """The feed says four baths; the builder's plan page says three and a half. The card
+    a reader sees carries the corrected number, and the stored observation is untouched."""
+    _record(
+        sessions,
+        [
+            *[_plan(*p) for p in PRICE_LIST],
+            _spec("s1", "1820 Crested Ridge Rd, Aledo, TX 76008", 360_000, 2000),
+        ],
+    )
+    corrections = {
+        "s1": {"listed": 3.0, "verified": 2.5, "source": "builder plan page",
+               "verified_on": "2026-07-26"}
+    }
+    card = _scored(sessions, corrections=corrections)["s1"]
+
+    assert card.baths == 2.5
+    assert card.quality.has(BATHS_CORRECTED)
+    assert card.quality.corrections["baths"]["listed"] == 3.0
+    assert _stored(sessions, "s1")["baths"] == 3.0
+
+
+def test_no_estimate_or_rent_figure_can_reach_the_score(sessions):
+    """Two identical spec homes, one carrying a large published estimate and a rent
+    figure. The scores must be identical — this is the rule the original tool broke."""
+    _record(
+        sessions,
+        [
+            *[_plan(*p) for p in PRICE_LIST],
+            _spec("plain", "1820 Crested Ridge Rd, Aledo, TX 76008", 360_000, 2000),
+            make_listing(
+                "estimated",
+                address="1901 Crested Ridge Rd, Aledo, TX 76008",
+                price=360_000,
+                sqft=2000,
+                status_text="New construction",
+                days_on_zillow=10,
+                zestimate=900_000,
+                rent_zestimate=6_000,
+            ),
+        ],
+    )
+    cards = _scored(sessions)
+
+    assert cards["plain"].score == cards["estimated"].score
