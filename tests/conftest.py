@@ -27,7 +27,6 @@ import pytest
 
 from propertyfinder.adapters import Listing, ZillowAdapter
 from propertyfinder.config import Settings, build_engine
-from propertyfinder.domain import Base
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -140,9 +139,15 @@ def make_adapter(fake_transport):
 
 @pytest.fixture
 def engine(tmp_path):
-    """A throwaway database with the production pragmas switched on."""
+    """A throwaway database with the production pragmas switched on.
+
+    Built by the migration runner rather than by `create_all`, so every store test is
+    also, quietly, a test that the migrations produce a schema the tool can work in.
+    """
+    from propertyfinder.store import run_migrations
+
     eng = build_engine(Settings(_env_file=None, db_path=str(tmp_path / "finder.db")))
-    Base.metadata.create_all(eng)
+    run_migrations(eng)
     return eng
 
 

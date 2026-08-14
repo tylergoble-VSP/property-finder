@@ -17,6 +17,18 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from propertyfinder.adapters import Listing
 from propertyfinder.domain import PropertySnapshot, WatchedProperty
+from propertyfinder.migrations import Migration, discover, ordered
+from propertyfinder.timeutil import utc_now_iso
+
+# The version stamp itself, which no migration may create because every migration is
+# recorded in it. Created before the first step runs and never altered afterwards.
+_SCHEMA_VERSION_DDL = """
+CREATE TABLE IF NOT EXISTS schema_version (
+    version    INTEGER PRIMARY KEY,
+    name       TEXT NOT NULL,
+    applied_ts TEXT NOT NULL
+)
+"""
 
 # Identity fields a later sighting may correct or fill in. Deliberately excludes
 # first_seen (a fact about the past, fixed once) and zpid (the identity itself).
@@ -33,6 +45,51 @@ _REFRESHABLE = (
     "image_url",
     "date_sold",
 )
+
+
+def run_migrations(
+    engine: Engine, migrations: list[Migration] | None = None
+) -> list[Migration]:
+    """Bring a database up to the current schema. Returns the steps it actually ran.
+
+    Idempotent by construction: applied versions are read from `schema_version` and
+    skipped, so this is safe to call on every command — a user should never have to know
+    whether their database is current, and a cron job certainly should not.
+
+    Each step is stamped only once it returns, so a failure part-way through a series
+    leaves the earlier steps applied and recorded and the failing one unrecorded — the
+    next run retries exactly it. (It retries rather than rolls back: Python's SQLite
+    driver commits schema statements implicitly, which is why migrations are required to
+    be safe to run twice. See `propertyfinder.migrations`.)
+    """
+    steps = discover() if migrations is None else ordered(migrations)
+    with engine.begin() as conn:
+        conn.execute(text(_SCHEMA_VERSION_DDL))
+        done = {row[0] for row in conn.execute(text("SELECT version FROM schema_version"))}
+
+    applied: list[Migration] = []
+    for step in steps:
+        if step.version in done:
+            continue
+        with engine.begin() as conn:
+            step.apply(conn)
+            conn.execute(
+                text(
+                    "INSERT INTO schema_version (version, name, applied_ts) "
+                    "VALUES (:version, :name, :ts)"
+                ),
+                {"version": step.version, "name": step.name, "ts": utc_now_iso()},
+            )
+        applied.append(step)
+    return applied
+
+
+def schema_version(engine: Engine) -> int:
+    """The highest migration this database has applied; 0 if it has applied none."""
+    with engine.begin() as conn:
+        conn.execute(text(_SCHEMA_VERSION_DDL))
+        row = conn.execute(text("SELECT MAX(version) FROM schema_version")).scalar()
+    return int(row or 0)
 
 
 def session_factory(engine: Engine) -> sessionmaker:
