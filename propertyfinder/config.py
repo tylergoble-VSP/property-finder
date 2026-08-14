@@ -5,6 +5,14 @@ or machine-specific and is loaded from the environment; `WatchConfig` holds the 
 definitions a user edits and version-controls. A watch that fails validation must fail
 loudly at load time — a misconfigured watch that sweeps anyway spends real API quota
 collecting garbage.
+
+Money assumptions live in both worlds at once: one global `finance:` block states what is
+true of every market, and a watch may override the handful of fields that are local to it
+— its verified tax rate, its improvement district, its insurance market. `finance_for`
+**merges** the two rather than choosing between them, which is the part the original got
+wrong: it replaced the global block outright, so a watch that set one field silently lost
+the nine it had not mentioned, and every monthly figure for that market was quietly built
+on the model's bare defaults.
 """
 from __future__ import annotations
 
@@ -16,6 +24,18 @@ from pydantic import AliasChoices, BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
+
+from propertyfinder.costmodel import FinanceAssumptions, SpecialAssessment
+
+__all__ = [
+    "FinanceAssumptions",
+    "Settings",
+    "SpecialAssessment",
+    "Watch",
+    "WatchConfig",
+    "build_engine",
+    "load_watch_config",
+]
 
 VALID_STATUSES = {"for_sale", "for_rent", "sold"}
 
@@ -64,6 +84,9 @@ class Watch(BaseModel):
     queries: list[str] = Field(min_length=1)
     subdivision: str | None = None
     filters: dict = Field(default_factory=dict)
+    # Only the money facts that are local to this market. Everything left unstated is
+    # inherited from the global block by `WatchConfig.finance_for`.
+    finance: FinanceAssumptions | None = None
 
     @field_validator("listing_status")
     @classmethod
@@ -89,6 +112,7 @@ class Watch(BaseModel):
 
 class WatchConfig(BaseModel):
     currency: str = "USD"
+    finance: FinanceAssumptions = FinanceAssumptions()
     watches: list[Watch]
 
     def watch(self, name: str) -> Watch:
@@ -96,6 +120,26 @@ class WatchConfig(BaseModel):
             if w.name == name:
                 return w
         raise KeyError(f"no watch named {name!r} in the watch config")
+
+    def finance_for(self, watch: Watch) -> FinanceAssumptions:
+        """This watch's money assumptions: its own fields laid over the global block.
+
+        Merged, not replaced. `model_fields_set` is what makes that exact — it holds the
+        fields the YAML actually mentioned, so a watch overrides precisely what it wrote
+        down and inherits everything else. Asking instead for "the fields that differ from
+        the model's defaults" would be subtly wrong in the direction that hurts: a watch
+        deliberately restating a value that happens to equal a default would be treated as
+        having said nothing, and would silently inherit the global figure instead.
+
+        A nested block is one fact and is replaced whole. A watch naming its improvement
+        district replaces the global district outright rather than blending the two — a
+        lot's assessment comes from one service-and-assessment plan, and half of one plan
+        mixed with half of another is not a bill anybody sends.
+        """
+        if watch.finance is None:
+            return self.finance
+        stated = {k: getattr(watch.finance, k) for k in watch.finance.model_fields_set}
+        return self.finance.model_copy(update=stated)
 
 
 def load_watch_config(path: str | Path = "watch-config.yaml") -> WatchConfig:

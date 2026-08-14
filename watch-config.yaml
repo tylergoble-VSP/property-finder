@@ -3,6 +3,17 @@
 # per home, and filtered to the radius. The radius is authoritative.
 currency: USD
 
+# What is true of every market. A watch states only what is local to it and inherits the
+# rest from here (config.WatchConfig.finance_for merges, it does not replace) — so adding
+# a field here reaches every watch without being repeated in each one.
+finance:
+  mortgage_rate: 6.5          # annual %, 30-year fixed
+  down_pct: 20.0
+  loan_term_years: 30
+  insurance_annual_per_1000: 5.0   # $/yr per $1,000 of value
+  default_tax_rate: 2.0       # placeholder: every real market overrides this with a
+                              # verified, cited rate. See walsh-aledo below.
+
 watches:
   # The Walsh master-planned community, west of Fort Worth. The subdivision filter
   # (built at Stage 9) narrows the circle to actual members; until then the radius
@@ -18,6 +29,28 @@ watches:
     queries: ["Aledo, TX 76008"]
     subdivision: walsh
     filters: {}
+    finance:
+      # Verified, not guessed. The original ran for weeks on a guessed 2.9% before anyone
+      # read the adopted rates, and the correction moved every monthly number by hundreds
+      # of dollars. Both numbers below carry the citation the report prints.
+      default_tax_rate: 2.339427
+      tax_rate_citation: >-
+        Tax year 2025 adopted rates, verified against the taxing entities 2026-08-06:
+        school district 1.1942, city 0.6700, county + road 0.2851, college 0.1061,
+        hospital 0.0841 — 2.339427% in total.
+      special_assessment:
+        # The Walsh Public Improvement District apportions a fixed dollar principal per
+        # lot, so this is flat_annual and not a percentage — the modelling fix this whole
+        # rebuild was called for (docs/REBUILD.md, post-mortem item 3). It is ALSO
+        # two-tier: a new 70-foot lot bills ~$3,271/yr, an early-phase 70-foot lot ~$928.
+        # The figure below is the new-lot tier, which is the safe assumption for a
+        # market-wide report; any specific lot must be verified in writing before an
+        # offer, and overridden per property (costmodel.monthly_cost takes an assessment).
+        flat_annual: 3271
+        citation: >-
+          Walsh Public Improvement District service-and-assessment plan, May 2026 update:
+          new 70-foot lot $3,271/yr ($40,193 principal, to 2056); 60-foot lot $2,642/yr;
+          early-phase 70-foot lot $928/yr remaining. Two tiers — verify per lot, in writing.
 
   # Sold companion (paired with walsh-aledo by the <name>-sold convention). Texas is a
   # non-disclosure state: expect price to be null on most sold rows; the re-anchored
