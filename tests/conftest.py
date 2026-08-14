@@ -95,6 +95,46 @@ class FakeSearchApi(httpx.MockTransport):
         ]
 
 
+NO_LISTINGS = {"properties": [], "pagination": {"current_page": 1, "total_pages": 1}}
+
+
+def one_page(body: dict, properties: list | None = None) -> dict:
+    """A response body that claims to be the only page, optionally with new rows.
+
+    Paging is the adapter's business and is tested there; a test about *fanning out
+    across queries* should not also be walking pages, so this trims a fixture to one.
+    """
+    return {
+        **body,
+        "properties": body["properties"] if properties is None else properties,
+        "pagination": {"current_page": 1, "total_pages": 1},
+    }
+
+
+class RoutedSearchApi(httpx.MockTransport):
+    """A provider that answers by *query string* rather than by page.
+
+    The default transport is keyed on listing status and page, which is what adapter
+    tests need. A watch, though, asks several different place strings and has to
+    reconcile the answers — so this one routes on `q`, and a query it does not recognise
+    gets the empty answer the real feed returns for a place with nothing for sale.
+    """
+
+    def __init__(self, by_query: dict[str, dict]):
+        self.by_query = by_query
+        self.requests: list[httpx.Request] = []
+        super().__init__(self._handle)
+
+    def _handle(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        query = request.url.params.get("q")
+        return httpx.Response(200, json=self.by_query.get(query, NO_LISTINGS))
+
+    @property
+    def queries_asked(self) -> list[str]:
+        return [r.url.params.get("q") for r in self.requests]
+
+
 @pytest.fixture
 def fake_transport() -> FakeSearchApi:
     """The default internet: the golden fixtures, served by engine."""
