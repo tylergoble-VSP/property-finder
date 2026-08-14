@@ -127,10 +127,13 @@ def _stored(home) -> list[tuple]:
 
 
 def test_init_builds_the_database_and_says_what_version_it_is(home, capsys):
+    from propertyfinder.migrations import discover
+
+    latest = max(m.version for m in discover())
     assert main(["init"]) == 0
     assert (home / "finder.db").exists()
     out = capsys.readouterr().out
-    assert "schema version 1" in out and "applied 1 migration" in out
+    assert f"schema version {latest}" in out and f"applied {latest} migration" in out
 
 
 def test_init_is_safe_to_run_again(home, capsys):
@@ -285,3 +288,11 @@ def test_an_unknown_watch_name_reports_nothing_and_writes_no_files(home, capsys)
     assert main(["report", "--watch", "nowhere"]) == 1
     assert "no watch named 'nowhere'" in capsys.readouterr().out
     assert not (home / "reports").exists()
+
+
+def test_predictions_reports_an_empty_loop_honestly(home, capsys):
+    main(["init"])
+    capsys.readouterr()
+    assert main(["predictions"]) == 0
+    out = capsys.readouterr().out
+    assert "0 resolved" in out and "nothing resolved yet" in out

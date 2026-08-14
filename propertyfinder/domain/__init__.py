@@ -1,4 +1,9 @@
-"""What the database keeps: identity, and observation."""
-from propertyfinder.domain.models import Base, PropertySnapshot, WatchedProperty
+"""What the database keeps: identity, observation, and the tool's own claims."""
+from propertyfinder.domain.models import (
+    Base,
+    Prediction,
+    PropertySnapshot,
+    WatchedProperty,
+)
 
-__all__ = ["Base", "PropertySnapshot", "WatchedProperty"]
+__all__ = ["Base", "Prediction", "PropertySnapshot", "WatchedProperty"]

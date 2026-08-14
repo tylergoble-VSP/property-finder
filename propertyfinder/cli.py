@@ -1,9 +1,10 @@
-"""Four commands, which is the whole tool at this stage.
+"""Five commands, which is the whole tool at this stage.
 
     propertyfinder init                    build or update the database
     propertyfinder watches                 list what is configured
     propertyfinder sweep [--watch NAME]    look at the market and say what moved
     propertyfinder report [--watch NAME]   build the HTML report from what sweep stored
+    propertyfinder predictions             how wrong the valuation model has been
 
 The original grew to fourteen commands, several of them one-offs that outlived their
 question. This one adds a command when a person needs it, not when a module appears.
@@ -14,8 +15,8 @@ offline), and the run's call budget is decided. Every sweep is charged against a
 and the ceiling is stated out loud when the run ends — a tool that spends a shared
 monthly allowance should never leave anyone guessing what a command cost.
 
-`report` spends nothing — it only reads what `sweep` already stored — so it takes no
-client and no budget.
+`report` and `predictions` spend nothing — they only read what `sweep` already stored —
+so they take no client and no budget.
 """
 from __future__ import annotations
 
@@ -29,6 +30,7 @@ from propertyfinder.adapters import ZillowAdapter
 from propertyfinder.budget import BudgetExceeded, CallBudget
 from propertyfinder.config import Settings, build_engine, load_watch_config
 from propertyfinder.pagebuild import render
+from propertyfinder.predictions import calibration_report, format_calibration
 from propertyfinder.reportdata import build_payload
 from propertyfinder.store import run_migrations, schema_version, session_factory
 from propertyfinder.sweep import SweepSummary, run_sweep
@@ -131,6 +133,22 @@ def cmd_report(args, settings: Settings, _client) -> int:
     return 0
 
 
+def cmd_predictions(args, settings: Settings, _client) -> int:
+    """Print how wrong the valuation model has been, per segment and per basis.
+
+    Deliberately its own command rather than a footnote on the report. A person who wants
+    to know whether to trust the scores should be able to ask directly, and get an answer
+    that says "nothing resolved yet" when that is the truth.
+    """
+    engine = build_engine(settings)
+    run_migrations(engine)
+    sessions = session_factory(engine)
+
+    with sessions() as session:
+        print(format_calibration(calibration_report(session)))
+    return 0
+
+
 def _print_summary(summary: SweepSummary, detail: int = 8) -> None:
     print(summary.headline())
     for cut in summary.cuts[:detail]:
@@ -147,6 +165,7 @@ COMMANDS = {
     "watches": cmd_watches,
     "sweep": cmd_sweep,
     "report": cmd_report,
+    "predictions": cmd_predictions,
 }
 
 
@@ -179,6 +198,10 @@ def build_parser() -> argparse.ArgumentParser:
         "report", help="build the HTML report for one watch, or all of them"
     )
     report.add_argument("--watch", help="report only this watch (default: every watch)")
+
+    subparsers.add_parser(
+        "predictions", help="how wrong the valuation model has been, per segment"
+    )
     return parser
 
 
