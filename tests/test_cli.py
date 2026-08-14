@@ -537,3 +537,34 @@ def test_daily_budget_flag_overrides_the_monthly_cap_slice(home, capsys, monkeyp
 
     assert main(["daily", "--budget", "5"], client=client) == 0
     assert "budget: 2/5 calls spent (3 left)" in capsys.readouterr().out
+
+
+def test_daily_without_deploy_never_touches_the_deploy_script(home, capsys, monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "_run_deploy_script", lambda: calls.append(1) or 0)
+    monkeypatch.setattr(cli, "utc_now_iso", lambda: "2026-07-24T09:00:00Z")
+    client, _ = _client(_market(_row("111", 500_000)))
+
+    assert main(["daily"], client=client) == 0
+    assert calls == []
+    assert "deploy:" not in capsys.readouterr().out
+
+
+def test_daily_deploy_chains_the_script_and_reports_success(home, capsys, monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "_run_deploy_script", lambda: calls.append(1) or 0)
+    monkeypatch.setattr(cli, "utc_now_iso", lambda: "2026-07-25T09:00:00Z")
+    client, _ = _client(_market(_row("111", 500_000)))
+
+    assert main(["daily", "--deploy"], client=client) == 0
+    assert calls == [1]
+    assert "deploy: ok" in capsys.readouterr().out
+
+
+def test_daily_deploy_failure_becomes_dailys_own_exit_code(home, capsys, monkeypatch):
+    monkeypatch.setattr(cli, "_run_deploy_script", lambda: 1)
+    monkeypatch.setattr(cli, "utc_now_iso", lambda: "2026-07-26T09:00:00Z")
+    client, _ = _client(_market(_row("111", 500_000)))
+
+    assert main(["daily", "--deploy"], client=client) == 1
+    assert "deploy: failed (exit 1)" in capsys.readouterr().out

@@ -7,7 +7,7 @@
     propertyfinder map [--watch NAME]      the deal map, under its own dated name
     propertyfinder predictions             how wrong the valuation model has been
     propertyfinder enrich [--watch NAME]   pull year built, lot, dues and tax via detail
-    propertyfinder daily [--no-sweep]      sweep everything, rebuild everything, one digest
+    propertyfinder daily [--no-sweep] [--deploy]   sweep, rebuild, digest, optionally publish
 
 The original grew to fourteen commands, several of them one-offs that outlived their
 question. This one adds a command when a person needs it, not when a module appears.
@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import subprocess
 from pathlib import Path
 
 import httpx
@@ -283,6 +284,11 @@ def cmd_daily(args, settings: Settings, client: httpx.Client | None) -> int:
     runs against whatever the database already holds. A `daily` that sends no digest
     because a mid-month sweep tripped a ceiling would be a worse outcome than a slightly
     stale one that still arrives.
+
+    `--deploy` chains `scripts/deploy.sh` after the digest: rebuild `site/` from
+    `site-manifest.yaml` and push it live. It runs last and only once everything else has
+    already happened, so a deploy always publishes the same pages the digest just
+    described — never a half-finished run's worth of them.
     """
     config = load_watch_config(args.watch_config)
     engine = build_engine(settings)
@@ -359,8 +365,26 @@ def cmd_daily(args, settings: Settings, client: httpx.Client | None) -> int:
         print()
         print(body)
 
+    exit_code = 0
+    if args.deploy:
+        exit_code = _run_deploy_script()
+        print(f"deploy: {'ok' if exit_code == 0 else f'failed (exit {exit_code})'}")
+
     print(f"budget: {budget}")
-    return 0
+    return exit_code
+
+
+def _run_deploy_script(script: Path = Path("scripts/deploy.sh")) -> int:
+    """Shell out to `scripts/deploy.sh` and return its exit code.
+
+    A thin seam rather than an inline `subprocess.run` call, for the same reason `client`
+    is a parameter everywhere above this line: so a test can replace it with something
+    that records a call instead of one that touches the network. `daily` assumes it is run
+    from the repository root, same as `report`'s `reports/` and the default
+    `watch-config.yaml` — nothing here resolves an installed package's location, because
+    `scripts/` is not part of the installed package at all (docs/vercel.md).
+    """
+    return subprocess.run(["bash", str(script)], check=False).returncode
 
 
 def _fit_for_predictions(sold_rows: list[dict], now_iso: str):
@@ -474,6 +498,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="the most billable calls this run may spend "
         "(default: the monthly cap divided across 30 days)",
+    )
+    daily.add_argument(
+        "--deploy",
+        action="store_true",
+        help="chain scripts/deploy.sh after the digest — rebuild site/ and push it live",
     )
     return parser
 
