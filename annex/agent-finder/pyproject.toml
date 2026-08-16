@@ -1,0 +1,36 @@
+[project]
+name = "agentfinder"
+version = "0.1.0"
+description = "Find luxury listing agents around a point, and build a designer's outreach report — an annex to property-finder"
+requires-python = ">=3.11"
+
+# The annex depends on core and reuses its seams (the Listing dataclass, CallBudget,
+# SchemaDrift, geo, the store window-query idiom, the migration runner, pagebuild.render).
+# Core never depends on the annex — the dependency arrow points one way, which is the whole
+# lesson of docs/REBUILD.md post-mortem item 2 (the lending annex that "ate the house").
+dependencies = [
+    "propertyfinder",
+    "httpx",
+    "pydantic>=2",
+    "sqlalchemy>=2",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+agentfinder = "agentfinder.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["agentfinder*"]
+
+[tool.setuptools.package-data]
+agentfinder = ["templates/*.html", "data/*.yaml"]

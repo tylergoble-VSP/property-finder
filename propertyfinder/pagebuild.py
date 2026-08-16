@@ -39,7 +39,13 @@ VENDOR_TOKEN = re.compile(r"\{\{VENDOR:([A-Za-z0-9._-]+)\}\}")
 _CLOSERS = ("</script", "</style")
 
 
-def render(template_name: str, payload: dict) -> str:
+def render(
+    template_name: str,
+    payload: dict,
+    *,
+    templates_dir: Path | None = None,
+    vendor_dir: Path | None = None,
+) -> str:
     """The named template, with its payload token replaced by `payload` as JSON.
 
     Raises `ValueError` if the token is missing, or appears more than once — a template
@@ -50,8 +56,18 @@ def render(template_name: str, payload: dict) -> str:
     Vendored assets are inlined first and the payload last, so the payload's own text is
     the one thing on the page nothing afterwards reads: an address that happened to spell
     an include token could otherwise pull a file into the JSON.
+
+    `templates_dir`/`vendor_dir` default to this package's own folders (resolved at call
+    time, so monkeypatching the module globals still works), and exist so a dependent
+    package (the agent-finder annex) can render its own templates through this same splicing
+    — reusing the `</`-escaping and the exactly-one-token check rather than copying a
+    security-relevant function.
     """
-    template = inline_vendor((TEMPLATES_DIR / template_name).read_text(), template_name)
+    templates_dir = templates_dir or TEMPLATES_DIR
+    vendor_dir = vendor_dir or VENDOR_DIR
+    template = inline_vendor(
+        (templates_dir / template_name).read_text(), template_name, vendor_dir
+    )
     count = template.count(PAYLOAD_TOKEN)
     if count != 1:
         raise ValueError(
@@ -67,21 +83,26 @@ def render(template_name: str, payload: dict) -> str:
     return template.replace(PAYLOAD_TOKEN, encoded)
 
 
-def inline_vendor(template: str, template_name: str = "<template>") -> str:
+def inline_vendor(
+    template: str,
+    template_name: str = "<template>",
+    vendor_dir: Path | None = None,
+) -> str:
     """Every `{{VENDOR:name}}` replaced by the bytes of `templates/vendor/name`.
 
     A template with no includes comes back untouched, which is why `report.html` never had
     to hear about any of this. A named file that is not there raises rather than rendering
     a page whose map is a grey rectangle.
     """
+    vendor_dir = vendor_dir or VENDOR_DIR
 
     def _read(match: re.Match) -> str:
         name = match.group(1)
-        path = VENDOR_DIR / name
+        path = vendor_dir / name
         if not path.is_file():
             raise ValueError(
                 f"{template_name!r} asks for the vendored file {name!r}, which is not in "
-                f"{VENDOR_DIR} — nothing was rendered"
+                f"{vendor_dir} — nothing was rendered"
             )
         asset = path.read_text()
         lowered = asset.lower()

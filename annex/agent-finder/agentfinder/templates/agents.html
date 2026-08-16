@@ -1,0 +1,156 @@
+<!-- Luxury listing-agent outreach report. Built by agentfinder.reportdata + pagebuild.render:
+     this file is the whole of *how* it looks; the data arrives as one JSON payload spliced
+     into the token below. No markup is assembled in Python. -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Luxury Agent Outreach</title>
+<style>
+  :root {
+    --bg:#f6f5f2; --card:#fff; --ink:#1a1a1a; --muted:#6b6b6b; --line:#e3e0da;
+    --accent:#7a5c2e; --good:#2e7d5b; --mid:#b8860b; --warn:#a23b3b; --chip:#efeae0;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+    --bg:#16150f; --card:#211f18; --ink:#f0ede4; --muted:#a29b8a; --line:#33302a;
+    --accent:#c9a961; --good:#5bbd8f; --mid:#d8b34a; --warn:#e07a7a; --chip:#2c2a20;}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:32px 20px 80px}
+  h1{font-size:26px;margin:0 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);margin:0 0 24px}
+  h2{font-size:16px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);
+    margin:36px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .stats{display:flex;flex-wrap:wrap;gap:14px;margin:18px 0}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:12px 16px;min-width:150px;flex:1}
+  .stat .n{font-size:22px;font-weight:650}
+  .stat .l{color:var(--muted);font-size:12.5px}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;overflow:hidden}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);font-size:13.5px}
+  th{background:var(--chip);font-weight:600;color:var(--muted);text-transform:uppercase;
+    font-size:11px;letter-spacing:.05em}
+  tr:last-child td{border-bottom:none}
+  .tier{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px;
+    text-transform:uppercase;letter-spacing:.04em}
+  .CONFIRMED{background:color-mix(in srgb,var(--good) 20%,transparent);color:var(--good)}
+  .INFERRED{background:color-mix(in srgb,var(--mid) 22%,transparent);color:var(--mid)}
+  .UNRESOLVED{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+  .spec{font-size:10px;font-weight:700;color:var(--accent)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    display:flex;flex-direction:column}
+  .ph{aspect-ratio:16/10;background:var(--chip);overflow:hidden;position:relative}
+  .ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .ph .score{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.72);color:#fff;
+    font-weight:700;font-size:13px;padding:3px 9px;border-radius:20px}
+  .body{padding:12px 14px}
+  .addr{font-weight:640;font-size:14px}
+  .price{color:var(--accent);font-weight:680;font-size:16px}
+  .meta{color:var(--muted);font-size:12.5px;margin:2px 0 8px}
+  .agent{border-top:1px solid var(--line);padding-top:8px;margin-top:6px;font-size:13px}
+  .agent .nm{font-weight:640}
+  .why{margin:8px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--muted)}
+  .why li{margin:3px 0;padding-left:14px;position:relative}
+  .why li:before{content:"·";position:absolute;left:2px;color:var(--accent);font-weight:700}
+  .note{color:var(--muted);font-size:12px;margin:6px 0}
+  a{color:var(--accent)}
+  .foot{margin-top:40px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);
+    padding-top:14px}
+</style>
+<div class="wrap"><div id="app"></div></div>
+<script>
+const DATA = /*__PAYLOAD__*/{};
+const $ = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c;
+  if (h != null) e.innerHTML = h; return e; };
+const money = n => n ? "$" + Math.round(n).toLocaleString() : "—";
+const M = n => n ? "$" + (n/1e6).toFixed(1) + "M" : "—";
+
+function render() {
+  const app = document.getElementById("app");
+  const m = DATA.market, c = DATA.concentration, cov = DATA.coverage;
+  app.append($("h1", null, "Luxury Listing Agents — Outreach Report"));
+  app.append($("p", "sub", `${DATA.for} · ${m.radius_miles}-mile ring around ${m.center_address}`
+    + ` · floor ${money(m.price_floor)} · built ${DATA.generated_ts.slice(0,10)}`));
+
+  const stats = $("div", "stats");
+  const stat = (n, l) => { const s = $("div","stat"); s.append($("div","n",n),$("div","l",l));
+    return s; };
+  stats.append(
+    stat(DATA.counts.luxury_listings, "luxury listings"),
+    stat(c.unique_agents, "agents identified"),
+    stat(M(c.total_volume), "total volume"),
+    stat(Math.round(cov.resolution_rate*100)+"%", "resolved to a named agent"),
+    stat(c.top10_pct_of_total.toFixed(0)+"%", "held by the top 10 agents"),
+    stat(c.agents_to_cover_80pct, "agents to reach 80% of volume"));
+  app.append(stats);
+
+  app.append($("h2", null, "Who to call first — ranked by luxury volume held"));
+  const tbl = $("table");
+  tbl.append($("thead", null, "<tr><th>#</th><th>Agent</th><th>Brokerage</th>"
+    + "<th>Listings</th><th>Volume</th><th>Contact</th><th>Confidence</th></tr>"));
+  const tb = $("tbody");
+  DATA.agents.forEach((a, i) => {
+    const tr = $("tr");
+    const spec = a.specialist === "SPECIALIST" ? ' <span class="spec">◆ repeat</span>' : "";
+    tr.append(
+      $("td", null, i+1),
+      $("td", null, `<span class="nm">${a.name||"—"}</span>${spec}`
+        + (a.licence ? `<br><span class="note">TREC #${a.licence}</span>` : "")),
+      $("td", null, a.brokerage || "—"),
+      $("td", null, a.n_listings),
+      $("td", null, M(a.volume)),
+      $("td", null, a.phone || "—"),
+      $("td", null, `<span class="tier ${a.tier}">${a.tier}</span>`));
+    tb.append(tr);
+  });
+  tbl.append(tb); app.append(tbl);
+
+  app.append($("h2", null, `Opportunities — ${DATA.opportunities.length} listings, ranked by design fit`));
+  const cards = $("div", "cards");
+  DATA.opportunities.forEach(o => {
+    const card = $("div", "card");
+    const ph = $("div", "ph");
+    if (o.photos && o.photos.length) {
+      const img = $("img"); img.loading = "lazy"; img.src = o.photos[0];
+      img.referrerPolicy = "no-referrer"; ph.append(img);
+    }
+    ph.append($("div", "score", o.designfit.score)); card.append(ph);
+    const b = $("div", "body");
+    b.append($("div", "price", money(o.price)));
+    b.append($("div", "addr", o.address || "—"));
+    b.append($("div", "meta",
+      `${o.beds||"?"} bd · ${o.baths||"?"} ba · ${o.sqft? o.sqft.toLocaleString()+" sqft":"?"}`
+      + (o.days_on_market!=null ? ` · ${o.days_on_market} days on market` : "")));
+    const ag = $("div", "agent");
+    const a = o.agent;
+    if (a.name) {
+      ag.innerHTML = `<span class="nm">${a.name}</span> `
+        + `<span class="tier ${a.tier}">${a.tier}</span><br>`
+        + `${a.brokerage||""}${a.phone? " · "+a.phone:""}`
+        + (a.licence? ` · TREC #${a.licence}`:"")
+        + (a.co_listers && a.co_listers.length? `<br><span class="note">with ${a.co_listers.join(", ")}</span>`:"");
+    } else if (a.brokerage) {
+      ag.innerHTML = `<span class="tier ${a.tier}">${a.tier}</span> ${a.brokerage}`
+        + `<br><span class="note">${a.reason||"individual agent not published"}</span>`;
+    } else {
+      ag.innerHTML = `<span class="tier UNRESOLVED">UNRESOLVED</span>`
+        + `<br><span class="note">${a.reason||"listing agent not resolved"}</span>`;
+    }
+    b.append(ag);
+    const why = $("ul", "why");
+    o.designfit.ledger.filter(l => l.points > 0 && !l.label.startsWith("Every"))
+      .forEach(l => why.append($("li", null, l.label)));
+    if (why.children.length) b.append(why);
+    if (o.link) b.append($("div", "note", `<a href="${o.link}" target="_blank" rel="noopener">View on Zillow →</a>`));
+    card.append(b); cards.append(card);
+  });
+  app.append(cards);
+
+  const foot = $("div", "foot");
+  foot.innerHTML = cov.notes.map(n => "· " + n).join("<br>");
+  app.append(foot);
+}
+render();
+</script>
