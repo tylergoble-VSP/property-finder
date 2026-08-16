@@ -13,6 +13,10 @@
   @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
     --bg:#16150f; --card:#211f18; --ink:#f0ede4; --muted:#a29b8a; --line:#33302a;
     --accent:#c9a961; --good:#5bbd8f; --mid:#d8b34a; --warn:#e07a7a; --chip:#2c2a20;}}
+  /* An explicit dark choice in the viewer wins even when the OS is light. */
+  :root[data-theme=dark]{
+    --bg:#16150f; --card:#211f18; --ink:#f0ede4; --muted:#a29b8a; --line:#33302a;
+    --accent:#c9a961; --good:#5bbd8f; --mid:#d8b34a; --warn:#e07a7a; --chip:#2c2a20;}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
@@ -45,6 +49,8 @@
   .ph img{width:100%;height:100%;object-fit:cover;display:block}
   .ph .score{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.72);color:#fff;
     font-weight:700;font-size:13px;padding:3px 9px;border-radius:20px}
+  .ph .noimg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:12px;letter-spacing:.03em}
   .body{padding:12px 14px}
   .addr{font-weight:640;font-size:14px}
   .price{color:var(--accent);font-weight:680;font-size:16px}
@@ -112,10 +118,13 @@ function render() {
   DATA.opportunities.forEach(o => {
     const card = $("div", "card");
     const ph = $("div", "ph");
+    const placeholder = () => { ph.querySelector("img")?.remove();
+      if (!ph.querySelector(".noimg"))
+        ph.append($("div", "noimg", "Photo on Zillow")); };
     if (o.photos && o.photos.length) {
       const img = $("img"); img.loading = "lazy"; img.src = o.photos[0];
-      img.referrerPolicy = "no-referrer"; ph.append(img);
-    }
+      img.referrerPolicy = "no-referrer"; img.onerror = placeholder; ph.append(img);
+    } else { placeholder(); }
     ph.append($("div", "score", o.designfit.score)); card.append(ph);
     const b = $("div", "body");
     b.append($("div", "price", money(o.price)));
