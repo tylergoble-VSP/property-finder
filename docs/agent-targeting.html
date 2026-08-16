@@ -1,0 +1,950 @@
+<title>Luxury Agent Ledger</title>
+<style>
+  :root{
+    --ground:#F7F8F6; --surface:#FFFFFF; --surface-2:#EFF1EE; --line:#D8DCD7; --line-soft:#E7EAE6;
+    --ink:#14201C; --ink-2:#3A4642; --muted:#67716C;
+    --teal:#0F5257; --teal-soft:#E3EDEC; --teal-line:#9DBFBD;
+    --brass:#8F5B26; --brass-soft:#F6EDE1; --brass-line:#D7B489;
+    --rust:#8F3A2A; --rust-soft:#F8E9E5; --rust-line:#D9A99E;
+    --good:#2F6B47; --good-soft:#E5EFE8;
+    --shadow:0 1px 2px rgba(20,32,28,.05), 0 4px 14px rgba(20,32,28,.045);
+    --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,ui-serif,serif;
+    --sans:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;
+    --mono:ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0F1513; --surface:#161E1B; --surface-2:#1D2724; --line:#2B3733; --line-soft:#222D2A;
+      --ink:#E6EBE7; --ink-2:#BAC4BF; --muted:#8A958F;
+      --teal:#5FB8AD; --teal-soft:#14312F; --teal-line:#2F5F5A;
+      --brass:#D9A063; --brass-soft:#2E241733; --brass-line:#6B5232;
+      --rust:#D98670; --rust-soft:#33201B; --rust-line:#6E3F34;
+      --good:#6FBF8C; --good-soft:#17291F;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0F1513; --surface:#161E1B; --surface-2:#1D2724; --line:#2B3733; --line-soft:#222D2A;
+    --ink:#E6EBE7; --ink-2:#BAC4BF; --muted:#8A958F;
+    --teal:#5FB8AD; --teal-soft:#14312F; --teal-line:#2F5F5A;
+    --brass:#D9A063; --brass-soft:#2E2417; --brass-line:#6B5232;
+    --rust:#D98670; --rust-soft:#33201B; --rust-line:#6E3F34;
+    --good:#6FBF8C; --good-soft:#17291F;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:var(--sans); font-size:16.5px; line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:0 28px 120px}
+  .measure{max-width:68ch}
+
+  /* ---------- masthead ---------- */
+  header.mast{
+    border-bottom:1px solid var(--line); margin-bottom:52px;
+    padding:64px 0 34px; display:flex; flex-direction:column; gap:18px;
+  }
+  .eyebrow{
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--teal); display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+  }
+  .eyebrow span.sep{color:var(--line)}
+  h1{
+    font-family:var(--serif); font-weight:600; font-size:clamp(2.3rem,5.2vw,3.4rem);
+    line-height:1.06; letter-spacing:-.015em; margin:0; text-wrap:balance; max-width:19ch;
+  }
+  .standfirst{font-size:1.11rem; color:var(--ink-2); max-width:64ch; margin:0}
+  .mast-meta{
+    display:flex; flex-wrap:wrap; gap:8px 22px; font-family:var(--mono);
+    font-size:11.5px; color:var(--muted); letter-spacing:.04em; padding-top:6px;
+  }
+  .mast-meta b{color:var(--ink-2); font-weight:600}
+
+  /* ---------- sections ---------- */
+  section{margin:0 0 60px; scroll-margin-top:24px}
+  .sec-head{display:flex; gap:16px; align-items:baseline; margin:0 0 8px; border-top:2px solid var(--ink); padding-top:14px}
+  .sec-num{
+    font-family:var(--mono); font-size:12px; font-weight:600; color:var(--teal);
+    letter-spacing:.1em; flex:none; padding-top:.42em;
+  }
+  h2{font-family:var(--serif); font-weight:600; font-size:clamp(1.5rem,3vw,2rem); line-height:1.14; margin:0; letter-spacing:-.01em; text-wrap:balance}
+  h3{font-family:var(--serif); font-weight:600; font-size:1.2rem; margin:36px 0 10px; line-height:1.3; text-wrap:balance}
+  h4{font-family:var(--mono); font-weight:600; font-size:11.5px; letter-spacing:.13em; text-transform:uppercase;
+     color:var(--muted); margin:28px 0 10px}
+  p{margin:0 0 15px}
+  a{color:var(--teal)}
+  strong{font-weight:650; color:var(--ink)}
+  em.term{font-style:normal; font-family:var(--mono); font-size:.87em; background:var(--surface-2);
+    border:1px solid var(--line-soft); padding:.08em .38em; border-radius:3px; color:var(--ink-2)}
+  ul,ol{margin:0 0 15px; padding-left:1.25em}
+  li{margin:0 0 7px}
+  ul.tight li{margin:0 0 4px}
+
+  /* ---------- tables ---------- */
+  .scroll{overflow-x:auto; margin:20px 0 22px; border:1px solid var(--line); border-radius:7px; background:var(--surface); box-shadow:var(--shadow)}
+  table{border-collapse:collapse; width:100%; font-size:13.6px; font-variant-numeric:tabular-nums}
+  th,td{padding:9px 13px; text-align:left; border-bottom:1px solid var(--line-soft); white-space:nowrap; vertical-align:top}
+  thead th{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--muted); font-weight:600; background:var(--surface-2); border-bottom:1px solid var(--line);
+    position:sticky; top:0;
+  }
+  tbody tr:last-child td{border-bottom:none}
+  td.num,th.num{text-align:right; font-family:var(--mono); font-size:12.8px}
+  td.wrap{white-space:normal; min-width:250px}
+  .rowlab{font-weight:600}
+  tr.sum td{background:var(--surface-2); font-weight:650; border-top:1px solid var(--line)}
+
+  /* ---------- callouts ---------- */
+  .note{
+    border:1px solid var(--line); border-left:3px solid var(--teal); background:var(--surface);
+    border-radius:0 7px 7px 0; padding:15px 18px; margin:22px 0; box-shadow:var(--shadow);
+  }
+  .note.warn{border-left-color:var(--rust)}
+  .note.guess{border-left-color:var(--brass)}
+  .note-lab{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.13em; text-transform:uppercase;
+    color:var(--teal); font-weight:600; display:block; margin-bottom:6px;
+  }
+  .note.warn .note-lab{color:var(--rust)}
+  .note.guess .note-lab{color:var(--brass)}
+  .note p:last-child{margin-bottom:0}
+
+  /* ---------- pills ---------- */
+  .pill{
+    display:inline-block; font-family:var(--mono); font-size:10.5px; letter-spacing:.06em;
+    padding:2px 7px; border-radius:3px; font-weight:600; text-transform:uppercase; white-space:nowrap;
+  }
+  .p-sweep{background:var(--teal-soft); color:var(--teal); border:1px solid var(--teal-line)}
+  .p-detail{background:var(--brass-soft); color:var(--brass); border:1px solid var(--brass-line)}
+  .p-hist{background:var(--surface-2); color:var(--muted); border:1px solid var(--line)}
+  .p-measured{background:var(--good-soft); color:var(--good); border:1px solid var(--good)}
+  .p-judged{background:var(--rust-soft); color:var(--rust); border:1px solid var(--rust-line)}
+
+  /* ---------- key figures ---------- */
+  .figs{display:grid; grid-template-columns:repeat(auto-fit,minmax(158px,1fr)); gap:1px; background:var(--line);
+    border:1px solid var(--line); border-radius:7px; overflow:hidden; margin:24px 0; box-shadow:var(--shadow)}
+  .fig{background:var(--surface); padding:15px 16px; display:flex; flex-direction:column; gap:3px}
+  .fig .v{font-family:var(--mono); font-size:1.5rem; font-weight:600; color:var(--teal); line-height:1.1; font-variant-numeric:tabular-nums}
+  .fig .k{font-size:12px; color:var(--muted); line-height:1.35}
+
+  /* ---------- ledger ---------- */
+  .ledger{border:1px solid var(--line); border-radius:7px; background:var(--surface); overflow:hidden; margin:22px 0; box-shadow:var(--shadow)}
+  .ledger-hd{padding:13px 18px; background:var(--surface-2); border-bottom:1px solid var(--line);
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-2); font-weight:600}
+  .lrow{display:flex; gap:14px; padding:8px 18px; border-bottom:1px solid var(--line-soft); align-items:baseline; font-size:14px}
+  .lrow:last-child{border-bottom:none}
+  .lrow .pts{font-family:var(--mono); font-weight:650; width:52px; flex:none; text-align:right; font-variant-numeric:tabular-nums}
+  .pos{color:var(--good)} .neg{color:var(--rust)}
+  .lrow.total{background:var(--surface-2); font-weight:650; border-top:1px solid var(--line)}
+  .lrow .lab{color:var(--ink-2)}
+  .lrow.total .lab{color:var(--ink)}
+
+  hr.rule{border:none; border-top:1px solid var(--line); margin:44px 0}
+  footer{border-top:2px solid var(--ink); margin-top:60px; padding-top:22px; color:var(--muted); font-size:13.5px}
+  code{font-family:var(--mono); font-size:.87em}
+  :focus-visible{outline:2px solid var(--teal); outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  @media (max-width:640px){ .wrap{padding:0 18px 80px} .sec-head{gap:11px} body{font-size:16px} }
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <div class="eyebrow">
+    <span>Targeting Methodology</span><span class="sep">/</span>
+    <span>Lindsey Goble Interiors</span><span class="sep">/</span>
+    <span>v1.0</span>
+  </div>
+  <h1>Finding the agents who buy design</h1>
+  <p class="standfirst">
+    How to turn a Zillow listing feed into a ranked, defensible list of the twenty luxury
+    real-estate agents within 25 miles of Walsh Ranch who are most likely to take Lindsey's call —
+    and what to say when they do.
+  </p>
+  <div class="mast-meta">
+    <span>Center <b>32.73665, −97.55626</b></span>
+    <span>Radius <b>25 mi</b></span>
+    <span>Live sweep <b>16 Aug 2026</b></span>
+    <span>Sample <b>268 luxury listings / 466 baseline / 209 agent records</b></span>
+  </div>
+</header>
+
+<!-- ============ SUMMARY ============ -->
+<section id="summary">
+  <div class="sec-head"><span class="sec-num">00</span><h2>What the live data changed</h2></div>
+  <p class="measure">
+    Every number in this document was measured against the real SearchApi Zillow feed on 16 August 2026,
+    not assumed. Five findings materially change how the tool should be built. Each is flagged
+    <span class="pill p-measured">measured</span> where it comes from that sweep and
+    <span class="pill p-judged">judgement</span> where I am choosing rather than observing.
+  </p>
+
+  <div class="figs">
+    <div class="fig"><span class="v">28.3 mi</span><span class="k">Southlake — <b>outside</b> the ring, with Westlake, Trophy Club &amp; Colleyville</span></div>
+    <div class="fig"><span class="v">1 call</span><span class="k">per listing to learn the agent's name — attribution is detail-tier only</span></div>
+    <div class="fig"><span class="v">19.0%</span><span class="k">of listings over $1M are raw land, not homes</span></div>
+    <div class="fig"><span class="v">51%</span><span class="k">of luxury listings have exactly 40 photos — the MLS cap</span></div>
+    <div class="fig"><span class="v">8%</span><span class="k">field coverage on <em class="term">year_built</em> — the renovation pitch is not buildable</span></div>
+  </div>
+
+  <ol class="measure">
+    <li><strong>The richest luxury markets in DFW fall just outside the ring.</strong> Southlake (28.3 mi),
+      Trophy Club (28.3), Westlake (27.3) and Colleyville (25.3) are all beyond 25 miles. Lindsey's
+      market is therefore the <em>west-side Fort Worth luxury corridor plus the Parker County estate belt</em> —
+      a genuinely different market from the Southlake money everyone chases.</li>
+    <li><strong>Agent identity costs an API call — but almost nothing else does.</strong> The search
+      endpoint returns no agent and no brokerage; <em class="term">agent_name</em> lives only in the detail
+      endpoint's <em class="term">attribution</em> block. Against that, price cuts, Showcase, 3D tours and
+      builder attribution all come back <b>free in the sweep</b> — so the opportunity signals fire on day
+      one and detail calls stay reserved for attribution and renovation mining (§3).</li>
+    <li><strong>Photo count does not separate good agents from great ones.</strong> It saturates: the
+      NTREIS MLS caps listings at 40 photos and 51% of luxury listings sit exactly there. Photo count is a
+      powerful <em>negative</em> screen — it finds under-presented listings — but a weak positive score.
+      This partially contradicts the original hypothesis and is dealt with head-on in §3.</li>
+    <li><strong>Stalled luxury is the dominant opportunity, not an edge case.</strong> Median days-on-market
+      for a clean luxury listing is 73 against 57 for the whole market, and the top quartile sits past 135 days.
+      A quarter of the luxury book is stalled at any moment.</li>
+    <li><strong>Luxury specialists genuinely exist and are few.</strong> 141 distinct agents hold the 209
+      attributed luxury listings, but the 22% who hold more than one control 47% of the book. One agent
+      holds 15. The power law is real, so ranking works.</li>
+  </ol>
+</section>
+
+<!-- ============ 1. GEOGRAPHY ============ -->
+<section id="geography">
+  <div class="sec-head"><span class="sec-num">01</span><h2>Geography: what is actually inside 25 miles</h2></div>
+  <p class="measure">
+    Distances are great-circle (haversine, R = 3958.76 mi) from 32.73665, −97.55626, computed against
+    GNIS/OSM centroids. <span class="pill p-measured">measured</span>
+  </p>
+
+  <h3>The ring boundary</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Place</th><th class="num">Miles</th><th>Dir</th><th>In ring?</th><th class="wrap">Note</th></tr></thead>
+    <tbody>
+      <tr><td class="rowlab">Walsh Ranch (center)</td><td class="num">0.0</td><td>—</td><td>Yes</td><td class="wrap">Mixed-tier master plan; <b>not</b> a luxury enclave</td></tr>
+      <tr><td class="rowlab">Aledo town</td><td class="num">3.8</td><td>WSW</td><td>Yes</td><td class="wrap">Aledo ISD anchor</td></tr>
+      <tr><td class="rowlab">Montserrat</td><td class="num">5.0</td><td>ESE</td><td>Yes</td><td class="wrap">Guard-gated custom; median list ≈ $3.65M</td></tr>
+      <tr><td class="rowlab">Montrachet</td><td class="num">≈5.2</td><td>ESE</td><td>Yes</td><td class="wrap">169 lots; median home ≈ $3.04M</td></tr>
+      <tr><td class="rowlab">Willow Park</td><td class="num">5.1</td><td>W</td><td>Yes</td><td class="wrap">Parker County</td></tr>
+      <tr><td class="rowlab">La Cantera at Team Ranch</td><td class="num">5.6</td><td>ESE</td><td>Yes</td><td class="wrap">24-hr guarded, 1-acre estate lots</td></tr>
+      <tr><td class="rowlab">Benbrook</td><td class="num">6.0–7.1</td><td>SE</td><td>Yes</td><td class="wrap">Contains the Montserrat corridor</td></tr>
+      <tr><td class="rowlab">Annetta / N / S</td><td class="num">6.4–7.3</td><td>W/SW</td><td>Yes</td><td class="wrap">Gentleman-ranch equestrian estates</td></tr>
+      <tr><td class="rowlab">Ridglea Hills</td><td class="num">7.5</td><td>ESE</td><td>Yes</td><td class="wrap">Reputation exceeds reality — see density table</td></tr>
+      <tr><td class="rowlab">Kelly Ranch (La Dorada)</td><td class="num">8.0</td><td>SSW</td><td>Yes</td><td class="wrap">1,500-ac master plan; golf anchor</td></tr>
+      <tr><td class="rowlab">Westover Hills</td><td class="num">8.1–8.3</td><td>E</td><td>Yes</td><td class="wrap">Wealthiest FW suburb; avg ≈ $2.35M</td></tr>
+      <tr><td class="rowlab">Bear Creek Ranch</td><td class="num">8.4</td><td>SSW</td><td>Yes</td><td class="wrap">Gated 2–5 ac, design review</td></tr>
+      <tr><td class="rowlab">Mira Vista</td><td class="num">9.0–10.1</td><td>SE</td><td>Yes</td><td class="wrap">Gated golf; wide price spread</td></tr>
+      <tr><td class="rowlab">Rivercrest / River Crest CC</td><td class="num">9.0–10.2</td><td>E</td><td>Yes</td><td class="wrap">Old-money FW; avg listing ≈ $4.08M</td></tr>
+      <tr><td class="rowlab">Tanglewood</td><td class="num">10.1</td><td>ESE</td><td>Yes</td><td class="wrap">TCU/Colonial adjacent</td></tr>
+      <tr><td class="rowlab">Colonial CC / TCU</td><td class="num">10.8</td><td>E</td><td>Yes</td><td class="wrap"></td></tr>
+      <tr><td class="rowlab">Weatherford</td><td class="num">13.4–14.1</td><td>W</td><td>Yes</td><td class="wrap">Parker County seat; large estate book</td></tr>
+      <tr><td class="rowlab">The Resort on Eagle Mtn Lake</td><td class="num">15.3</td><td>NNE</td><td>Yes</td><td class="wrap">Only guarded golf community on the lake</td></tr>
+      <tr><td class="rowlab">Keller</td><td class="num">22.4–22.8</td><td>NE</td><td>Yes</td><td class="wrap">Edge of ring</td></tr>
+      <tr><td class="rowlab">Granbury</td><td class="num">23.7–24.6</td><td>SSW</td><td>Yes (edge)</td><td class="wrap">Pecan Plantation itself is out at 26.0</td></tr>
+      <tr class="sum"><td colspan="5">— 25-mile line —</td></tr>
+      <tr><td class="rowlab">Colleyville</td><td class="num">25.3–25.8</td><td>ENE</td><td><b>No</b></td><td class="wrap">SW corner clips in at ≈24.0</td></tr>
+      <tr><td class="rowlab">Arlington</td><td class="num">25.3</td><td>E</td><td><b>No</b> (partly)</td><td class="wrap">West city limit ≈19.6 — substantially inside</td></tr>
+      <tr><td class="rowlab">Roanoke</td><td class="num">26.6</td><td>NE</td><td><b>No</b></td><td class="wrap"></td></tr>
+      <tr><td class="rowlab">Westlake (Vaquero, Terra Bella)</td><td class="num">27.0–27.3</td><td>NE</td><td><b>No</b></td><td class="wrap">The entire Vaquero cluster is outside</td></tr>
+      <tr><td class="rowlab">Southlake</td><td class="num">27.9–28.3</td><td>ENE</td><td><b>No</b></td><td class="wrap">154 listings ≥$1M — the biggest nearby pool, out of range</td></tr>
+      <tr><td class="rowlab">Trophy Club</td><td class="num">28.1–28.3</td><td>NE</td><td><b>No</b></td><td class="wrap"></td></tr>
+      <tr><td class="rowlab">Grapevine</td><td class="num">30.6</td><td>ENE</td><td><b>No</b></td><td class="wrap"></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note">
+    <span class="note-lab">Decision required</span>
+    <p>Southlake alone holds <b>154 listings ≥$1M — 81% of its entire market</b>, the densest luxury ZIP in
+      North Texas. It sits 3.3 miles outside the ring. A 25-mile radius is a defensible service-area rule,
+      but it is worth Lindsey deciding explicitly whether to extend to <b>30 miles</b>, which would add
+      Southlake, Westlake, Trophy Club and Colleyville and roughly <b>double</b> the addressable luxury book.
+      My recommendation: hold 25 miles for v1 — the west-side market is under-served and less
+      competitive — and revisit once the pipeline proves out.</p>
+  </div>
+
+  <h3>Luxury density by submarket</h3>
+  <p class="measure">
+    Every figure below is a live count from the for-sale feed. "Land share" is the proportion of the
+    ≥$1M book that is raw land or has no square footage — the contamination problem of §3.
+    <span class="pill p-measured">measured</span>
+  </p>
+  <div class="scroll">
+  <table>
+    <thead><tr>
+      <th class="num">Rank</th><th>ZIP</th><th>Submarket</th><th class="num">All listings</th>
+      <th class="num">≥$1M</th><th class="num">% ≥$1M</th><th class="num">≥$2M</th>
+      <th class="num">Land share</th><th class="num">Median $/sf</th>
+    </tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td class="rowlab">76107</td><td>Rivercrest, Westover Hills, Crestline, Monticello</td><td class="num">194</td><td class="num">28</td><td class="num">14.4%</td><td class="num">12</td><td class="num">7.1%</td><td class="num">$458</td></tr>
+      <tr><td class="num">2</td><td class="rowlab">76126</td><td>Montserrat, Montrachet, La Cantera, Bella Flora, Benbrook</td><td class="num">249</td><td class="num">37</td><td class="num">14.9%</td><td class="num">11</td><td class="num">2.7%</td><td class="num">$360</td></tr>
+      <tr><td class="num">3</td><td class="rowlab">76008</td><td>Aledo, Walsh Ranch, Annetta corridor, Creeks of Aledo</td><td class="num">548</td><td class="num">67</td><td class="num">12.2%</td><td class="num">28</td><td class="num">11.9%</td><td class="num">$367</td></tr>
+      <tr><td class="num">4</td><td class="rowlab">76109</td><td>Tanglewood, Colonial/TCU, Overton Woods</td><td class="num">110</td><td class="num">19</td><td class="num">17.3%</td><td class="num">1</td><td class="num">10.5%</td><td class="num">$395</td></tr>
+      <tr><td class="num">5</td><td class="rowlab">76132</td><td>Mira Vista, SW Fort Worth</td><td class="num">73</td><td class="num">16</td><td class="num">21.9%</td><td class="num">8</td><td class="num">0.0%</td><td class="num">$382</td></tr>
+      <tr><td class="num">6</td><td class="rowlab">76087</td><td>Weatherford S, Hudson Oaks, Canyon West</td><td class="num">486</td><td class="num">87</td><td class="num">17.9%</td><td class="num">39</td><td class="num">33.3%</td><td class="num">$409</td></tr>
+      <tr><td class="num">7</td><td class="rowlab">76179</td><td>Saginaw, Eagle Mountain Lake, The Resort</td><td class="num">740</td><td class="num">45</td><td class="num">6.1%</td><td class="num">26</td><td class="num">—</td><td class="num">—</td></tr>
+      <tr><td class="num">8</td><td class="rowlab">76248</td><td>Keller (ring edge)</td><td class="num">162</td><td class="num">39</td><td class="num">24.1%</td><td class="num">7</td><td class="num">—</td><td class="num">—</td></tr>
+      <tr><td class="num">9</td><td class="rowlab">76049</td><td>Granbury (ring edge, partial)</td><td class="num">512</td><td class="num">45</td><td class="num">8.8%</td><td class="num">17</td><td class="num">—</td><td class="num">—</td></tr>
+      <tr><td class="num">10</td><td class="rowlab">76086</td><td>Weatherford N</td><td class="num">144</td><td class="num">9</td><td class="num">6.2%</td><td class="num">6</td><td class="num">77.8%</td><td class="num">—</td></tr>
+      <tr><td class="num">11</td><td class="rowlab">76116</td><td>Ridglea Hills, Ridglea CC</td><td class="num">129</td><td class="num">5</td><td class="num">3.9%</td><td class="num">2</td><td class="num">40.0%</td><td class="num">$329</td></tr>
+      <tr><td class="num">12</td><td class="rowlab">76110</td><td>Mistletoe Heights, Berkeley Place</td><td class="num">92</td><td class="num">6</td><td class="num">6.5%</td><td class="num">2</td><td class="num">—</td><td class="num">—</td></tr>
+      <tr><td class="num">—</td><td class="rowlab">76133 / 76112 / 76244</td><td>SW &amp; E Fort Worth, N Keller fringe</td><td class="num">446</td><td class="num">3</td><td class="num">&lt;1.5%</td><td class="num">0</td><td class="num">—</td><td class="num">—</td></tr>
+      <tr class="sum"><td colspan="3">Reference — <b>outside</b> the ring</td><td class="num">190</td><td class="num">154</td><td class="num">81.1%</td><td class="num">97</td><td class="num">—</td><td class="num">Southlake 76092</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p class="measure">The ranking blends three things a designer actually cares about — absolute count of
+    luxury inventory, concentration, and finish level as proxied by $/sf. Read it as three tiers:</p>
+
+  <h4>Tier 1 — where Lindsey should spend most of her time</h4>
+  <ul class="measure">
+    <li><strong>76107 — Rivercrest, Westover Hills, Crestline/Crestwood, Monticello.</strong> Highest
+      $/sf in the ring ($458 median, $575 at p75) and the lowest land contamination of the big ZIPs.
+      Old-money renovation and re-presentation work. This is the highest-quality book even though it is
+      not the biggest.</li>
+    <li><strong>76126 — Montserrat, Montrachet, La Cantera at Team Ranch, Bella Flora.</strong> The
+      new-luxury corridor, and the closest Tier 1 market to Walsh at ~5 miles. 2.7% land contamination is
+      the cleanest signal in the dataset, and it carries the luxury <em>new-construction spec</em> inventory
+      (§4, signal E) — unfurnished $5M+ builder homes, the highest-intent design target that exists.</li>
+    <li><strong>76008 — Aledo, Annetta corridor, Creeks of Aledo, Kelly Ranch.</strong> <b>Do not rank this
+      low because Walsh Ranch itself is mostly production.</b> Walsh is genuinely two-tier, expressed through
+      lot width: a village tier on 50–60ft lots ($400K–$800K; Highland Homes $800K–$929K, Drees 60ft from
+      $749K) and a custom/estate tier on 70ft+ lots (Drees 70ft from $917K, top active listing $1.838M in
+      Quail Valley at $355/sf). <span class="pill p-measured">externally sourced</span> Only ~8 of 84 live
+      Walsh listings clear $1M — Walsh alone is <em>not</em> the target. But the surrounding ZIP is: 67
+      listings ≥$1M and <b>28 ≥$2M, the deepest $2M+ book of any Tier 1 ZIP</b>, running to $15.9M — the
+      Annetta equestrian estates and acreage ranches immediately west. The design opportunity in 76008 is the
+      estate belt around Walsh and the custom 70ft tier inside it, not the production villages.</li>
+  </ul>
+
+  <h4>Tier 2 — worth systematic coverage</h4>
+  <ul class="measure">
+    <li><strong>76109 — Tanglewood, Colonial/TCU, Overton Woods.</strong> Good density (17.3%) but a thin
+      top end (only one listing ≥$2M). Renovation-led rather than estate-led.</li>
+    <li><strong>76132 — Mira Vista.</strong> Highest <em>percentage</em> luxury in the ring (21.9%) and
+      zero land contamination, but small in absolute terms (16 listings). Gated golf: a repeatable
+      referral community rather than a volume market.</li>
+    <li><strong>76087 — Weatherford South, Hudson Oaks.</strong> The largest raw count in the ring
+      (87 ≥$1M) but <b>one third of it is land</b>. After filtering it is a real market, and notably it
+      showed the highest Zillow Showcase adoption of any ZIP — four of the eight Showcase listings in the
+      whole sample. Agents there are buying presentation.</li>
+  </ul>
+
+  <h4>Tier 3 — do not build the program around these</h4>
+  <ul class="measure">
+    <li><strong>76116 Ridglea Hills</strong> trades on a country-club reputation but has only 5 listings
+      ≥$1M and 40% of those are land. Median neighborhood price is roughly $417K–$500K. It is a mid-market
+      neighborhood with a luxury name.</li>
+    <li><strong>76086 Weatherford North</strong> is 78% land at the top — essentially an acreage market.</li>
+    <li><strong>76179, 76049, 76248</strong> straddle the ring edge; include only listings that pass the
+      radius test individually, not the whole ZIP.</li>
+    <li><strong>Production master-plans — Morningstar, Ventana, Chapel Creek Ranch, Live Oak Creek,
+      Deer Creek, Lost Creek.</strong> All $300K–$700K. No design budget. Exclude by subdivision name.</li>
+  </ul>
+</section>
+
+<!-- ============ 2. THRESHOLD ============ -->
+<section id="threshold">
+  <div class="sec-head"><span class="sec-num">02</span><h2>The luxury threshold</h2></div>
+
+  <p class="measure">The market's own distribution, measured across every clean residential listing in
+    76107, 76126 and 76132 (n = 466): <span class="pill p-measured">measured</span></p>
+
+  <div class="figs">
+    <div class="fig"><span class="v">$504,750</span><span class="k">median list price</span></div>
+    <div class="fig"><span class="v">$750,000</span><span class="k">75th percentile</span></div>
+    <div class="fig"><span class="v">$1,599,000</span><span class="k">90th percentile</span></div>
+    <div class="fig"><span class="v">$2,375,000</span><span class="k">95th percentile</span></div>
+    <div class="fig"><span class="v">$225/sf</span><span class="k">median price per sq ft</span></div>
+    <div class="fig"><span class="v">$396/sf</span><span class="k">90th percentile $/sf</span></div>
+  </div>
+
+  <h3>Recommendation</h3>
+  <div class="note">
+    <span class="note-lab">The gate</span>
+    <p style="font-family:var(--mono);font-size:14px;line-height:1.75">
+      <b>LUXURY</b> = <code>price ≥ $1,000,000</code><br>
+      &nbsp;&nbsp;<b>AND</b> <code>price / sqft ≥ $275</code><br>
+      &nbsp;&nbsp;<b>AND</b> <code>sqft ≥ 2,000</code> and <code>sqft IS NOT NULL</code><br>
+      &nbsp;&nbsp;<b>AND</b> <code>home_type ∈ {SINGLE_FAMILY, TOWNHOUSE, CONDO}</code>
+    </p>
+    <p style="margin-top:12px">With a second tier — <b>ESTATE</b> at <code>price ≥ $2,000,000</code> — used for
+      weighting, not filtering.</p>
+  </div>
+
+  <p class="measure"><strong>Why a combination rather than one measure.</strong> The question asks whether
+    to use absolute dollars, a local percentile, or $/sf. Each fails alone in this specific market:</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Approach</th><th class="wrap">Why it fails here</th></tr></thead>
+    <tbody>
+      <tr><td class="rowlab">Absolute dollars alone</td><td class="wrap">$1M in Parker County buys 6,800 sf of ordinary construction on acreage — land value, not design value. Measured: 15 listings ≥$1M sit below $275/sf, including a $1,890,000 / 9,316 sf home at <b>$203/sf</b> and a $1,399,000 / 6,820 sf home at <b>$205/sf</b>. These are big cheap houses. A designer calling on them is wasting a call.</td></tr>
+      <tr><td class="rowlab">Local percentile alone</td><td class="wrap">Percentiles are computed per submarket, so the top 10% of Ridglea (≈$500K) would qualify while the bottom of Westover Hills would not. It makes the threshold move for reasons that have nothing to do with whether a design budget exists.</td></tr>
+      <tr><td class="rowlab">$/sf alone</td><td class="wrap">A 1,400 sf cottage in Monticello at $480/sf is $672K. Beautifully finished, no furnishing budget at that transaction size, and the seller is not hiring a designer to prep it.</td></tr>
+      <tr><td class="rowlab" style="color:var(--good)">Combination ✓</td><td class="wrap">The absolute floor guarantees a transaction large enough to carry a design fee; the $/sf floor guarantees the money went into the <em>building</em> rather than the dirt; the sqft floor and home-type filter remove land, lots and condos-by-error.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>Calibrating the two floors</h4>
+  <ul class="measure">
+    <li><strong>$1,000,000</strong> is the <b>95.7th percentile of active listings and the 97.7th of closed
+      sales</b> region-wide (Redfin export, 5,804 listings / 3,316 sales, 90 days to 31 May 2026 — externally
+      sourced and independently confirmed). Within the three luxury-corridor ZIPs I sampled directly it reads
+      as only the ~83rd percentile, because those ZIPs are luxury-skewed — which is precisely the argument
+      <em>against</em> a percentile threshold: the same dollar figure is the 83rd percentile or the 96th
+      depending on which ZIPs you count. An absolute floor does not move.</li>
+    <li><strong>The industry-standard floors are lower, and that is a deliberate choice to reject.</strong>
+      The Institute for Luxury Home Marketing sets its certified luxury threshold at <b>$680K for Tarrant
+      County and $830K for Parker County</b>; Williams Trew — Fort Worth's leading luxury house — markets its
+      Luxury Portfolio book at <b>$750K+</b>; Realtor.com puts DFW-metro luxury entry (top 5%) at $952K.
+      <span class="pill p-measured">externally sourced</span> These are the right anchors for a
+      <em>metro-wide</em> product. Lindsey's is not one: her geography is weighted west, into Aledo, Walsh
+      and Weatherford, where the <em>median</em> home is already $565K–$690K. A $750K floor there captures
+      ordinary move-up inventory — the external research says so in as many words ("$750K will over-capture
+      in Aledo/Walsh and Weatherford… if your geography is weighted west, $850K–$1M is the more meaningful
+      line"). <b>$1M is the floor that isolates the design budget in this specific corridor.</b> The
+      brokerage concentration (Compass, Williams Trew, Briggs Freeman = 38% of the ≥$1M book) confirms these
+      are the firms operating above the line.</li>
+    <li><strong>$275/sf</strong> is ≈ the 70th percentile of the whole market ($225 median, $293 at p75),
+      and sits comfortably below every Tier 1 submarket median ($360–$458). Measured effect: it removes
+      <b>15 of 214</b> clean luxury listings — 7.0%. Six of those are in 76008 and four in 76087, exactly
+      the Parker County land-value trap it is designed to catch. A $300 floor would remove 14.6%, which I
+      judge too aggressive; $250 removes only 4.7% and lets the worst offenders through.</li>
+  </ul>
+
+  <div class="note guess">
+    <span class="note-lab">Where I am judging, not measuring</span>
+    <p>The <b>$275</b> and <b>2,000 sf</b> figures are my calibration choices. The distribution they sit in
+      is measured; the decision about where to cut it is not derived from any outcome data, because none
+      exists yet — we have no record of which listings ever produced a design engagement. Both should be
+      treated as v1 settings to be revised once Lindsey has logged 20–30 real conversations.</p>
+    <p style="margin-top:10px">The <b>$1M floor is a deliberate departure</b> from the sourced industry
+      thresholds ($680K/$750K/$830K), not an endorsement of them. Those are correct for a metro-wide luxury
+      product; I am setting the bar higher <em>because</em> Lindsey's west-weighted geography would otherwise
+      fill the list with $600K–$800K Aledo and Weatherford move-up homes that carry no design budget. If
+      Lindsey later extends to the Southlake/Westlake side (§1), the floor should arguably drop toward $850K
+      there, since those markets clear $1M as routine inventory. The floor is geography-dependent by design.</p>
+  </div>
+
+  <div class="note warn">
+    <span class="note-lab">Texas is a non-disclosure state</span>
+    <p>Sold listings return <b>no price at all</b> — measured: 0 of 123 sold listings in 76107 carried
+      <em class="term">extracted_price</em>. Any threshold applied to sold inventory must use
+      <em class="term">zestimate</em> as a proxy, which was present on 86% of them. This directly limits
+      use case (b), the just-closed-buyer referral — see §4, signal I.</p>
+  </div>
+</section>
+
+<!-- ============ 3. SCORING ============ -->
+<section id="scoring">
+  <div class="sec-head"><span class="sec-num">03</span><h2>Identifying a luxury specialist</h2></div>
+
+  <h3>First: the data architecture this forces</h3>
+  <p class="measure">
+    The single most important engineering fact, and it is not optional.
+    <strong>The search endpoint returns no agent and no brokerage.</strong> Agent identity lives only in
+    the detail endpoint's <em class="term">attribution</em> block, at one API call per listing.
+  </p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Tier</th><th>Cost</th><th class="wrap">Fields available</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="rowlab"><span class="pill p-sweep">sweep</span></td>
+        <td>1 call ≈ 41 listings</td>
+        <td class="wrap"><b>Always present:</b> <em class="term">zpid, address, lat/lon, extracted_price, beds,
+          baths, sqft, lot_sqft, home_type, home_status, status_text, days_on_zillow, listing_sub_type,
+          images[], listing_type, thumbnail</em><br>
+          <b>Conditionally present</b> (emitted only on qualifying rows): <em class="term">is_showcase,
+          has_3d_model, open_house, price_change, price_reduction, date_price_changed, builder_name,
+          new_construction_type, tag</em></td>
+      </tr>
+      <tr>
+        <td class="rowlab"><span class="pill p-detail">detail</span></td>
+        <td><b>1 call per listing</b></td>
+        <td class="wrap"><em class="term">attribution.agent_name, attribution.broker_name, attribution.mls_id,
+          photo_count</em> (true count), <em class="term">year_built, description, page_view_count,
+          favorite_count, tour_view_count, price_history[], price_per_square_foot, property_tax_rate,
+          virtual_tour_url, home_insights, brokerage_name, walk_and_transit_scores</em></td>
+      </tr>
+      <tr>
+        <td class="rowlab"><span class="pill p-hist">history</span></td>
+        <td>free, accrues daily</td>
+        <td class="wrap">Repeat presence across sweeps, cumulative price movement, status flips,
+          time-to-pending, book growth or decay per agent</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p class="measure"><strong>More is free than the brief assumes — use it before spending a call.</strong>
+    Four signals that look like they should cost a detail call do not:</p>
+  <ul class="measure">
+    <li><em class="term">is_showcase</em> — the strongest presentation signal — is <b>free per listing</b>.
+      Measured: 8 of 268 rows carried the key, every one <code>true</code>.</li>
+    <li><em class="term">price_change</em>, <em class="term">price_reduction</em> and
+      <em class="term">date_price_changed</em> are free, which means <b>the price-cut opportunity signal
+      fires on the very first sweep</b> — no stored history required. Measured: 96 of 214 clean luxury
+      listings carried a price change, 89 of them cuts. This materially accelerates the programme: Lindsey
+      has a call list on day one rather than in month three.</li>
+    <li><em class="term">has_3d_model</em> and <em class="term">open_house</em> are free presentation-investment
+      signals, alongside the <em class="term">tag</em> object which carries <code>price_cut</code>,
+      <code>three_d_home</code>, <code>showcase</code>, <code>open_house</code> and
+      <code>days_on_zillow</code> types.</li>
+    <li><em class="term">builder_name</em> and <em class="term">new_construction_type</em> are free on
+      new-construction rows, making the unfurnished-luxury-spec pitch (signal E) a <b>sweep-tier</b>
+      detection.</li>
+  </ul>
+  <p class="measure">Detail calls should therefore be reserved for the three things that genuinely require
+    them: <b>agent attribution</b>, <b>true <em class="term">photo_count</em></b>, and
+    <b><em class="term">description</em> + <em class="term">year_built</em></b> for renovation mining — and
+    only on listings already shortlisted by the free signals.</p>
+
+  <div class="note warn">
+    <span class="note-lab">Conditional fields: absent ≠ false</span>
+    <p>These fields are emitted <b>only on qualifying rows</b>, so a missing key is ambiguous between "false"
+      and "not reported for this row type". In the live sample <em class="term">is_showcase</em> appeared on
+      new-construction and Benbrook rows but was absent across an entire 76107 resale page. Every instance
+      found was <code>true</code>, which is consistent with "emitted only when true" — but that is
+      <b>not proven</b>, and the two readings are not distinguishable from the data collected.
+      <b>Treat absence as UNKNOWN, never as a negative.</b> The scoring model already reflects this: Showcase
+      only ever adds points and never subtracts. Confirming the semantics is a one-hour validation job
+      (spot-check 20 non-Showcase listings against the detail endpoint) and should be done before the field
+      carries 10 points of weight.</p>
+  </div>
+
+  <div class="note">
+    <span class="note-lab">The pipeline, and what it costs</span>
+    <p><b>Sweep</b> the ring cheaply → <b>filter</b> to the §2 gate → <b>enrich</b> only survivors →
+      <b>aggregate</b> per agent. Measured inventory suggests roughly <b>300–400 clean residential luxury
+      listings</b> live in the ring at any moment. Enriching all of them costs 300–400 calls, or
+      <b>3–4% of the 10,000/month quota</b>. To get the concentration denominator (below) the net should widen
+      to ≥$750K, which measured at ~1.5× the ≥$1M count — call it <b>500–600 calls/month</b>, still under 6%.
+      <b>Agent attribution is affordable. It is simply not free, and it must be gated.</b></p>
+  </div>
+
+  <div class="note warn">
+    <span class="note-lab">Identity is fuzzy — plan for it</span>
+    <p><em class="term">agent_license</em> would be a perfect join key but is present on only <b>8 of 209</b>
+      records (4%). Agents must therefore be keyed on <b>normalised (agent_name, broker_name)</b>. The
+      normalisation is real work, not a formality: the live sample contained
+      <code>"Compass RE Texas, LLC"</code> and <code>"Compass RE Texas, LLC."</code> as separate strings, and
+      one agent — Allen Crumley — split into two records across <code>"Williams Trew"</code> and
+      <code>"Williams Trew Real Estate"</code>, costing him roughly 15 points of score. Strip trailing
+      punctuation, case-fold, collapse whitespace, and maintain a manual brokerage alias table.</p>
+  </div>
+
+  <h3>The presentation signal, honestly assessed</h3>
+  <p class="measure">
+    The brief calls photo count and Showcase "the designer's actual wedge." The strategic instinct is right;
+    the measurement does not work the way one would hope, and it is worth being precise about why.
+  </p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Signal</th><th class="num">Base rate</th><th class="wrap">Verdict</th></tr></thead>
+    <tbody>
+      <tr><td class="rowlab">photo_count = 40 exactly</td><td class="num">51%</td><td class="wrap"><b>Saturated.</b> 40 is the NTREIS MLS photo limit, not an API truncation — confirmed because one listing returned 70, and search <code>len(images)</code> matched detail <code>photo_count</code> exactly on every one of six sampled listings (40/40, 37/37, 22/22, 70/70). Every strong agent measured sits at 36–40. It cannot separate good from great.</td></tr>
+      <tr><td class="rowlab">photo_count &gt; 40</td><td class="num">1.4%</td><td class="wrap"><b>Rare and meaningful.</b> Exceeding the MLS cap means the agent uploaded directly to Zillow — a deliberate, discretionary presentation spend.</td></tr>
+      <tr><td class="rowlab">photo_count &lt; 15</td><td class="num">8.9%</td><td class="wrap"><b>The real value of this field.</b> A negative screen that finds under-presented luxury listings — Lindsey's pitch surface, not an agent-quality score.</td></tr>
+      <tr><td class="rowlab">is_showcase</td><td class="num">3.7%</td><td class="wrap"><b>High precision, low recall.</b> Zillow Showcase is a paid product; buying it is direct evidence of presentation budget. But at 3.7% it will only ever flag a handful of agents. Weight it heavily when present; never penalise absence.</td></tr>
+      <tr><td class="rowlab">virtual_tour_url present</td><td class="num">93%</td><td class="wrap"><b>Discard.</b> Effectively universal in luxury — it discriminates nothing.</td></tr>
+      <tr><td class="rowlab">tag = three_d_home / has_3d_model</td><td class="num">7.0%</td><td class="wrap"><b>Use this instead.</b> A genuine Matterport-class tour — someone paid a crew to scan the house. Free at sweep tier, and available two ways: the <em class="term">tag</em> object and the <em class="term">has_3d_model</em> flag.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p class="measure"><strong>The reframe:</strong> photo count identifies <em>bad</em> presentation, not good.
+    The clearest illustration in the live data is an agent at a builder's in-house brokerage carrying three
+    $1.1M listings with a <b>median of 5 photos and 0 page views</b> — production inventory masquerading as
+    luxury. Presentation investment is best detected through the <em>rare</em> signals (Showcase, &gt;40 photos,
+    3D tour), and presentation <em>failure</em> through the thin-photo screen.</p>
+
+  <h3>The Agent Quality Score — a transparent ledger</h3>
+  <p class="measure">
+    Base 0, capped at 100. Every line is a named adjustment stating a fact in plain English. Bands are set
+    at measured breakpoints so each threshold means something about where an agent sits in the real
+    distribution. <span class="pill p-measured">bands measured</span>
+    <span class="pill p-judged">weights judged</span>
+  </p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Component</th><th>Condition</th><th class="num">Pts</th><th class="wrap">Justification</th></tr></thead>
+    <tbody>
+      <tr><td class="rowlab" rowspan="5">Luxury commitment<br><span style="color:var(--muted);font-weight:400">max 38</span></td>
+        <td>≥10 luxury listings</td><td class="num">+38</td>
+        <td class="wrap" rowspan="5">Measured: 141 agents hold 209 luxury listings. 78% hold exactly one. ≥3 puts an agent in the top ~8% (12 of 141); ≥5 in the top ~4%; ≥10 in the top 1% — one agent, with 15. The steep curve is deliberate: this is the strongest single discriminator in the dataset, so it carries the largest weight.</td></tr>
+      <tr><td>5–9</td><td class="num">+30</td></tr>
+      <tr><td>3–4</td><td class="num">+20</td></tr>
+      <tr><td>2</td><td class="num">+12</td></tr>
+      <tr><td>1</td><td class="num">+5</td></tr>
+
+      <tr><td class="rowlab" rowspan="3">Concentration<br><span style="color:var(--muted);font-weight:400">max 8</span></td>
+        <td>≥80% of book ≥$750K is luxury</td><td class="num">+8</td>
+        <td class="wrap" rowspan="3">Separates the specialist from the generalist who caught one big listing. Requires enriching the ≥$750K net to get a denominator — see cost note above. <b>Not measurable in the current sample</b>; the denominator was not collected.</td></tr>
+      <tr><td>50–79%</td><td class="num">+4</td></tr>
+      <tr><td>&lt;30% and ≤2 luxury listings</td><td class="num">−8</td></tr>
+
+      <tr><td class="rowlab" rowspan="4">Price altitude<br><span style="color:var(--muted);font-weight:400">max 12</span></td>
+        <td>Median book ≥$3M</td><td class="num">+12</td>
+        <td class="wrap" rowspan="4"><b>Median</b>, deliberately — it is robust to a single trophy listing. Measured medians of the top agents: $1.999M, $2.189M, $2.75M, $3.995M, $4.597M.</td></tr>
+      <tr><td>$2–3M</td><td class="num">+9</td></tr>
+      <tr><td>$1.5–2M</td><td class="num">+6</td></tr>
+      <tr><td>$1–1.5M</td><td class="num">+3</td></tr>
+
+      <tr><td class="rowlab" rowspan="3">Ceiling<br><span style="color:var(--muted);font-weight:400">max 8</span></td>
+        <td>Top listing ≥$5M</td><td class="num">+8</td>
+        <td class="wrap" rowspan="3">Proves an agent can be <em>trusted</em> with a trophy property. Weighted below median (8 vs 12) <b>on purpose</b> — this is the exact axis on which a generalist with one lucky listing would otherwise score. Max alone can never carry an agent into the top band.</td></tr>
+      <tr><td>$3–5M</td><td class="num">+5</td></tr>
+      <tr><td>$2–3M</td><td class="num">+3</td></tr>
+
+      <tr><td class="rowlab" rowspan="4">Presentation<br><span style="color:var(--muted);font-weight:400">max 22</span></td>
+        <td>Any listing with is_showcase</td><td class="num">+10</td>
+        <td class="wrap">3.7% base rate. A paid Zillow product — the single cleanest evidence that this agent spends money on presentation. This is the wedge.</td></tr>
+      <tr><td>Median photo_count ≥36 / 25–35 / &lt;25</td><td class="num">+6 / +3 / −6</td>
+        <td class="wrap">Measured p25 = 36, median = 40. The negative band catches builder-brokerage production listings (median 5 photos).</td></tr>
+      <tr><td>Any listing &gt;40 photos</td><td class="num">+3</td>
+        <td class="wrap">1.4% base rate — broke the MLS cap deliberately.</td></tr>
+      <tr><td>3D tour on ≥50% of book</td><td class="num">+3</td>
+        <td class="wrap">7% base rate, free at sweep tier via <em class="term">tag</em> or <em class="term">has_3d_model</em>.</td></tr>
+
+      <tr><td class="rowlab" rowspan="2">Market traction<br><span style="color:var(--muted);font-weight:400">max 4</span></td>
+        <td>Median page_view_count ≥1,477 (p90)</td><td class="num">+4</td>
+        <td class="wrap" rowspan="2">Measured baselines: views median 589, p75 930, p90 1,477; favourites median 30, p75 54. Deliberately small — views track price and novelty as much as agent skill.</td></tr>
+      <tr><td>≥930 (p75)</td><td class="num">+2</td></tr>
+
+      <tr><td class="rowlab" rowspan="2">Persistence<br><span style="color:var(--muted);font-weight:400">max 10</span></td>
+        <td>In luxury book ≥3 consecutive monthly sweeps</td><td class="num">+10</td>
+        <td class="wrap" rowspan="2"><b>The best defence against a one-off, and it is free.</b> It cannot be computed on day one — it earns its value after ~90 days. This is the strongest argument for running the sweep daily from the start even before the report is used.</td></tr>
+      <tr><td>2 sweeps</td><td class="num">+5</td></tr>
+
+      <tr><td class="rowlab" rowspan="3">Brokerage prior<br><span style="color:var(--muted);font-weight:400">max 6</span></td>
+        <td>Williams Trew, Briggs Freeman Sotheby's, Compass, Allie Beth Allman, Christie's, Douglas Elliman</td><td class="num">+6</td>
+        <td class="wrap" rowspan="3">Measured concentration: Compass 35, Williams Trew 28, Briggs Freeman 16 — <b>38% of the entire luxury book in three houses</b>. Small weight because it is a prior about the firm, not evidence about the person.</td></tr>
+      <tr><td>Local luxury boutiques — The Atkins Agency, Cates &amp; Company, League RE, Moore RE</td><td class="num">+5</td></tr>
+      <tr><td>Builder in-house brokerage (Perry Homes Realty, D.R. Horton, Lennar…)</td><td class="num">−10</td></tr>
+
+      <tr><td class="rowlab">Penalties</td><td>FSBO listing / all-land book</td><td class="num">−15 / exclude</td>
+        <td class="wrap">Measured: only 1 FSBO in 268 luxury listings, so this is cheap insurance rather than a live problem. 242 of 268 were FSBA — <b>do not over-weight agent-represented status, it is nearly universal.</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note warn">
+    <span class="note-lab">Days on market is deliberately absent from this score</span>
+    <p>A stalled book means the agent is bad at pricing <em>or</em> bad at presentation — and the second is
+      precisely Lindsey's pitch. Scoring it as an agent <b>defect</b> would systematically down-rank her best
+      prospects. DOM therefore belongs entirely to the <b>Opportunity Score</b> (§4), never to agent quality.
+      Conflating the two is the classic error in this kind of model.</p>
+  </div>
+
+  <h3>The model run against live data</h3>
+  <p class="measure">
+    Scored on 209 attributed listings across the eight core west-side ZIPs. Concentration and persistence
+    could not be computed from a single sweep, so real scores will rise once the pipeline has history.
+    <span class="pill p-measured">measured</span>
+  </p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th class="num">AQS</th><th class="num">OS</th><th>Agent</th><th>Brokerage</th><th class="num">Lux</th>
+      <th class="num">Median</th><th class="num">Med DOM</th><th class="num">Stalled</th><th class="num">Cut</th><th class="num">Thin</th></tr></thead>
+    <tbody>
+      <tr><td class="num"><b>64</b></td><td class="num"><b>44</b></td><td class="rowlab">John Zimmerman</td><td>Compass RE Texas</td><td class="num">15</td><td class="num">$1,999,000</td><td class="num">150</td><td class="num">8</td><td class="num">8</td><td class="num">1</td></tr>
+      <tr><td class="num"><b>61</b></td><td class="num">0</td><td class="rowlab">Joseph Berkes</td><td>Williams Trew</td><td class="num">5</td><td class="num">$2,750,000</td><td class="num">81</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr>
+      <tr><td class="num"><b>56</b></td><td class="num">15</td><td class="rowlab">Piper Pardue</td><td>Williams Trew</td><td class="num">4</td><td class="num">$1,624,950</td><td class="num">68</td><td class="num">1</td><td class="num">4</td><td class="num">1</td></tr>
+      <tr><td class="num"><b>55</b></td><td class="num">12</td><td class="rowlab">Deeann Moore</td><td>Moore Real Estate</td><td class="num">9</td><td class="num">$2,189,000</td><td class="num">38</td><td class="num">2</td><td class="num">3</td><td class="num">0</td></tr>
+      <tr><td class="num"><b>51</b></td><td class="num">16</td><td class="rowlab">Martha Williams</td><td>Williams Trew</td><td class="num">5</td><td class="num">$1,599,000</td><td class="num">103</td><td class="num">2</td><td class="num">3</td><td class="num">1</td></tr>
+      <tr><td class="num">46</td><td class="num">0</td><td class="rowlab">Michael Hershenberg</td><td>Real Broker</td><td class="num">3</td><td class="num">$3,995,000</td><td class="num">10</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr>
+      <tr><td class="num">43</td><td class="num">0</td><td class="rowlab">Ida Duwe Olsen</td><td>Compass RE Texas</td><td class="num">2</td><td class="num">$3,170,000</td><td class="num">118</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr>
+      <tr><td class="num">41</td><td class="num">6</td><td class="rowlab">Allen Crumley</td><td>Williams Trew</td><td class="num">2</td><td class="num">$4,597,000</td><td class="num">242</td><td class="num">2</td><td class="num">0</td><td class="num">0</td></tr>
+      <tr><td class="num">39</td><td class="num">8</td><td class="rowlab">April Arias</td><td>Cates &amp; Company</td><td class="num">3</td><td class="num">$1,850,000</td><td class="num">152</td><td class="num">2</td><td class="num">1</td><td class="num">0</td></tr>
+      <tr><td class="num">38</td><td class="num">5</td><td class="rowlab">Lane Cooper</td><td>Keller Williams Heritage W</td><td class="num">2</td><td class="num">$7,481,800</td><td class="num">185</td><td class="num">1</td><td class="num">1</td><td class="num">0</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="ledger">
+    <div class="ledger-hd">Worked ledger — John Zimmerman, Compass RE Texas</div>
+    <div class="lrow"><span class="pts pos">+38</span><span class="lab">Holds <b>15 live luxury listings</b> — the largest book in the ring, top 1% of agents</span></div>
+    <div class="lrow"><span class="pts pos">+6</span><span class="lab">Median listing <b>$1,999,000</b> — sits in the $1.5–2M band</span></div>
+    <div class="lrow"><span class="pts pos">+8</span><span class="lab">Top listing <b>$5,995,000</b> — trusted with $5M+ property</span></div>
+    <div class="lrow"><span class="pts pos">+6</span><span class="lab">Median <b>40 photos</b> per listing — full MLS presentation on every home</span></div>
+    <div class="lrow"><span class="pts pos">+6</span><span class="lab">Brokerage is <b>Compass RE Texas</b> — a recognised luxury house</span></div>
+    <div class="lrow"><span class="pts">&nbsp;0</span><span class="lab" style="color:var(--muted)">No Showcase, no 3D tour, no &gt;40-photo listing — presentation spend is <em>adequate, not exceptional</em></span></div>
+    <div class="lrow total"><span class="pts">64</span><span class="lab">AGENT QUALITY SCORE</span></div>
+  </div>
+
+  <p class="measure">The ledger reads as a sentence, which is the point: <em>"He carries fifteen luxury
+    listings at a two-million-dollar median including a six-million-dollar home, photographs everything to
+    the MLS limit, and works at Compass — but he buys none of Zillow's premium presentation products."</em>
+    That last line is the opening of Lindsey's pitch. And his Opportunity Score of 44 — eight stalled
+    listings, eight price cuts — is the highest in the ring by a wide margin.</p>
+</section>
+
+<!-- ============ 4. SIGNALS ============ -->
+<section id="signals">
+  <div class="sec-head"><span class="sec-num">04</span><h2>Why this listing matters</h2></div>
+  <p class="measure">
+    Frequencies are measured against the 214 clean luxury listings in the core west-side ZIPs. The DOM
+    thresholds use the <b>luxury-specific</b> baseline, not the market-wide one — see below.
+  </p>
+
+  <h4>The days-on-market baseline, computed properly</h4>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Band</th><th class="num">n</th><th class="num">Median DOM</th><th class="num">p75</th></tr></thead>
+    <tbody>
+      <tr><td class="rowlab">Whole market (clean residential)</td><td class="num">466</td><td class="num">57</td><td class="num">93</td></tr>
+      <tr><td class="rowlab">Under $750K</td><td class="num">349</td><td class="num">51</td><td class="num">86</td></tr>
+      <tr><td class="rowlab">$750K–$1M</td><td class="num">39</td><td class="num">72</td><td class="num">72</td></tr>
+      <tr><td class="rowlab">$1–1.5M</td><td class="num">118</td><td class="num">66</td><td class="num">115</td></tr>
+      <tr><td class="rowlab">$1.5–2M</td><td class="num">71</td><td class="num">87</td><td class="num">166</td></tr>
+      <tr><td class="rowlab">$2–3M</td><td class="num">55</td><td class="num">86</td><td class="num">133</td></tr>
+      <tr><td class="rowlab">$3M+</td><td class="num">47</td><td class="num">96</td><td class="num">145</td></tr>
+      <tr class="sum"><td>All luxury (≥$1M, clean)</td><td class="num">214</td><td class="num">73</td><td class="num">135</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="measure">Luxury sits <b>1.3× the market median</b> and the gap widens with price. Borrowing the
+    market-wide 57-day median would flag most of the luxury book as stalled and the signal would mean
+    nothing. <b>Use band-specific thresholds:</b> <em>stalled</em> = DOM ≥ that band's p75;
+    <em>deeply stalled</em> = DOM ≥ 178 (luxury p90).</p>
+
+  <div class="note">
+    <span class="note-lab">Independent corroboration — and a refinement</span>
+    <p>A separate Redfin-export pull (5,804 active listings, region-wide) found the same ratio from the other
+      direction: $1M+ inventory sits at 100 median active-DOM against 69 market-wide — <b>1.45×</b>,
+      confirming the gap is real and not a sampling artefact of my eight ZIPs.</p>
+    <p style="margin-top:10px">The refinement matters for the pitch: <b>the luxury market here is bifurcated,
+      not uniformly slow.</b> Desirable product in the best neighbourhoods sells <em>fast</em> — Redfin's
+      neighbourhood tracker shows sold-DOM of 12 days in Rivercrest, 17 in Mira Vista, 14 in Mistletoe
+      Heights — while weaker product languishes (Park Hill 87 days, Colonial Hills 444). So a stalled listing
+      in a fast neighbourhood is a <em>stronger</em> signal than the raw DOM suggests: the comparable homes
+      around it are moving in two weeks and this one is not. When the pipeline has neighbourhood-level
+      sold-DOM, the stalled test should be <b>relative to the listing's own neighbourhood</b>, not just its
+      price band. <span class="pill p-measured">externally sourced</span></p>
+  </div>
+
+  <h3>Opportunity signals</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Signal</th><th class="wrap">Data condition</th><th>Tier</th><th class="num">Freq</th><th class="wrap">The pitch</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="rowlab">A · Under-presented</td>
+        <td class="wrap"><code>photo_count &lt; 15</code> AND luxury<br><span style="color:var(--muted)">wider net: <code>&lt; 25</code></span></td>
+        <td><span class="pill p-detail">detail</span></td>
+        <td class="num">8.9%<br><span style="color:var(--muted)">15.4%</span></td>
+        <td class="wrap"><b>Staging + photography.</b> "You have a $1.4M home with nine photographs. I can have it styled and shot properly in a week." The most concrete pitch in the set because the deficiency is undeniable and cheap to fix.</td>
+      </tr>
+      <tr>
+        <td class="rowlab">B · Stalled</td>
+        <td class="wrap"><code>days_on_zillow ≥ band p75</code> (135 for luxury overall)<br>deeply: <code>≥ 178</code></td>
+        <td><span class="pill p-sweep">sweep</span></td>
+        <td class="num">25.7%<br><span style="color:var(--muted)">10.7%</span></td>
+        <td class="wrap"><b>Refresh and re-shoot.</b> "This has been live four months in a market where comparable homes go in eleven weeks. Before you cut again, let's change what buyers are looking at." <b>The dominant opportunity type in this market.</b></td>
+      </tr>
+      <tr>
+        <td class="rowlab">C · Price cut</td>
+        <td class="wrap"><code>price_change &lt; 0</code><br>material: <code>|cut| ≥ 5% of ask</code></td>
+        <td><span class="pill p-sweep">sweep</span></td>
+        <td class="num">41.6%<br><span style="color:var(--muted)">15.4%</span></td>
+        <td class="wrap"><b>"It isn't priced wrong, it shows wrong."</b> A cut is a documented, dated admission the current approach failed. Measured median cut is <b>$54,150 (3.8% of ask)</b> — a full staging engagement costs a fraction of one cut. <b>Fires on the first sweep</b>: the feed carries the cut and its date, so no history is needed.</td>
+      </tr>
+      <tr>
+        <td class="rowlab">D · Just listed</td>
+        <td class="wrap"><code>days_on_zillow ≤ 7</code> AND luxury</td>
+        <td><span class="pill p-sweep">sweep</span></td>
+        <td class="num">6.5%</td>
+        <td class="wrap"><b>Catch it before the photographer.</b> The narrowest window and the highest value — pre-list styling, not rescue work. Requires a <b>daily</b> sweep; a weekly one misses most of them.</td>
+      </tr>
+      <tr>
+        <td class="rowlab">E · New-construction spec</td>
+        <td class="wrap"><code>listing_sub_type = newHome</code> OR <code>new_construction_type</code> set OR <code>builder_name</code> present — AND luxury</td>
+        <td><span class="pill p-sweep">sweep</span></td>
+        <td class="num">11.2%</td>
+        <td class="wrap"><b>Furnish the spec.</b> An unfurnished $6M builder home is the highest-intent design target that exists — the builder has capital, no emotional attachment, and a direct incentive. Concentrated in the 76126 Montserrat/Montrachet corridor. <b>Give this its own report section.</b></td>
+      </tr>
+      <tr>
+        <td class="rowlab">F · Dated at a high price</td>
+        <td class="wrap"><code>year_built ≤ 1995</code> AND luxury</td>
+        <td><span class="pill p-detail">detail</span></td>
+        <td class="num" style="color:var(--rust)">unusable</td>
+        <td class="wrap"><b>Renovation.</b> Strategically the best pitch Lindsey has — and <b>not buildable from this feed</b>: <em class="term">year_built</em> is populated on only <b>8% of listings</b> (17 of 214). Workaround: keyword-scan the detail <em class="term">description</em> for "original", "dated", "updated", "renovated", "built in". Flagged rather than hidden.</td>
+      </tr>
+      <tr>
+        <td class="rowlab">G · Watched but not wanted</td>
+        <td class="wrap"><code>page_view_count ≥ 1,477</code> (p90) AND <code>DOM ≥ 90</code></td>
+        <td><span class="pill p-detail">detail</span></td>
+        <td class="num">1.9%</td>
+        <td class="wrap"><b>"Traffic isn't the problem."</b> The strongest logical pitch in the set: demand is proven, conversion is failing, and presentation is the remaining variable. Rare, so treat every hit as high-priority.</td>
+      </tr>
+      <tr>
+        <td class="rowlab">H · Stalled <em>and</em> thin</td>
+        <td class="wrap">B AND A together</td>
+        <td><span class="pill p-detail">detail</span></td>
+        <td class="num">3.3%</td>
+        <td class="wrap"><b>The highest-conviction call Lindsey can make.</b> Seven listings in the current sample. Cause and effect are visible in one line, and the fix is exactly her service. <b>Rank these first, always.</b></td>
+      </tr>
+      <tr>
+        <td class="rowlab">I · Just closed</td>
+        <td class="wrap"><code>listing_status = sold</code> AND <code>date_sold ≤ 60d</code> AND <code>zestimate ≥ $1M</code></td>
+        <td><span class="pill p-sweep">sweep</span> + <span class="pill p-detail">detail</span></td>
+        <td class="num">≈6.6%<br><span style="color:var(--muted)">of sold</span></td>
+        <td class="wrap"><b>Buyer referral</b> — use case (b). "Your buyer just closed on an empty 6,000 sf house." <b>Constrained:</b> Texas non-disclosure means sold price is <em>always</em> null, so <em class="term">zestimate</em> is the only filter (present on 86%), and the sold-side <em class="term">broker</em> field is empty — attribution still needs a detail call.</td>
+      </tr>
+      <tr>
+        <td class="rowlab">J · Coming soon</td>
+        <td class="wrap"><code>listing_sub_type.is_comingSoon</code> AND luxury</td>
+        <td><span class="pill p-detail">detail</span></td>
+        <td class="num">&lt;1%</td>
+        <td class="wrap"><b>The pre-market window.</b> Rarest and earliest signal — the home is not yet photographed. Low volume, but every hit is perfectly timed.</td>
+      </tr>
+      <tr>
+        <td class="rowlab">K · Cut without change</td>
+        <td class="wrap">Price fell across sweeps AND <code>photo_count</code> unchanged AND <code>DOM</code> still rising</td>
+        <td><span class="pill p-hist">history</span></td>
+        <td class="num">—</td>
+        <td class="wrap"><b>"You changed the price twice and the pictures never once."</b> Only computable from stored history — this is the signal that justifies keeping daily snapshots, and no competitor buying a listing export can reproduce it.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ============ 5. PRIORITIZATION ============ -->
+<section id="priority">
+  <div class="sec-head"><span class="sec-num">05</span><h2>Ranking to twenty, not three hundred</h2></div>
+
+  <p class="measure">Two scores, never merged into one. An agent is worth a relationship because of
+    <b>AQS</b>; worth a call <em>this week</em> because of <b>OS</b>. Collapsing them into a single number
+    hides which of the two is driving the rank, and the two demand different opening lines.</p>
+
+  <h4>Opportunity Score</h4>
+  <div class="note">
+    <p style="font-family:var(--mono);font-size:14px;line-height:1.8;margin:0">
+      OS = 4 × (thin-photo luxury listings)<br>
+      &nbsp;&nbsp;&nbsp;+ 3 × (stalled luxury listings)<br>
+      &nbsp;&nbsp;&nbsp;+ 2 × (listings with a price cut)<br>
+      &nbsp;&nbsp;&nbsp;+ 5 × (listings hitting signal H — stalled <b>and</b> thin)<br>
+      &nbsp;&nbsp;&nbsp;+ 4 × (unfurnished luxury new-construction specs)
+    </p>
+  </div>
+  <p class="measure">Thin-photo outranks stalled because it is the deficiency Lindsey <em>directly</em> fixes;
+    a price cut scores lowest because it is common (41.6%) and therefore weakly diagnostic on its own.
+    <span class="pill p-judged">weights judged</span></p>
+
+  <h4>The call list</h4>
+  <ol class="measure">
+    <li><strong>Gate on quality.</strong> Require <b>AQS ≥ 35</b>. Measured: this yields <b>25 agents</b>
+      from 141 — almost exactly the target list size. AQS ≥ 45 yields only 6, which is too few;
+      AQS ≥ 25 yields 56, too many.</li>
+    <li><strong>Rank the survivors by OS descending.</strong> Quality qualifies; opportunity orders.</li>
+    <li><strong>Break ties on proximity</strong> to Lindsey's service centre — a 5-mile Montserrat call
+      beats a 24-mile Granbury call at equal score.</li>
+    <li><strong>Force-include any agent holding a signal-H listing</strong> regardless of AQS. Seven
+      listings in the sample carry it, and each is a near-perfect fit even if the agent is otherwise unranked.</li>
+    <li><strong>Cap at two agents per brokerage office</strong> for the first pass. Measured concentration
+      means an uncapped list would be a third Compass and Williams Trew; referral networks overlap, and
+      breadth is worth more than depth in week one.</li>
+  </ol>
+
+  <h3>The single best proxy for "this agent will take the call"</h3>
+  <div class="note">
+    <span class="note-lab">Recommendation</span>
+    <p style="font-size:1.06rem"><strong>A price cut in the last 21 days on a luxury listing already past
+      its band's median days-on-market.</strong></p>
+    <p>Detectable entirely at sweep tier from <em class="term">price_change</em> and
+      <em class="term">date_price_changed</em>, with no extra API cost.</p>
+  </div>
+
+  <p class="measure">The reasoning, and why it beats the alternatives:</p>
+  <ul class="measure">
+    <li><strong>It is an admission, in writing, with a date.</strong> Cutting a price is a public,
+      timestamped statement that the current approach is not working. The agent has already had the
+      difficult conversation with the seller and is actively looking for the next lever. Lindsey is not
+      creating the problem awareness — she is arriving just after it peaked.</li>
+    <li><strong>It is timed.</strong> The 21-day window is what separates this from every other signal.
+      DOM and photo count are <em>states</em> — true for months, with no reason to call today.
+      A price cut is an <em>event</em>. It gives a reason for the call to be happening now, which is the
+      difference between a cold call and a timely one.</li>
+    <li><strong>It has already cost real money.</strong> Measured median cut: <b>$54,150</b>. Against that,
+      a staging engagement is obviously the cheaper experiment — and the agent, not Lindsey, is the one who
+      has to justify the next cut to the seller.</li>
+    <li><strong>It is common enough to sustain a pipeline.</strong> 41.6% of luxury listings carried a cut,
+      15.4% a material one (≥5%). A signal that fires on 3% of inventory cannot fill a call list.</li>
+  </ul>
+  <p class="measure">The runner-up — <em>any</em> stalled luxury listing — is more numerous but strictly
+    weaker, because nothing has changed and there is no reason the call is happening today rather than
+    last month. And the intuitive choice, a high AQS, answers a different question entirely: it predicts
+    whether the agent is <em>worth</em> reaching, not whether they will pick up.</p>
+
+  <div class="note guess">
+    <span class="note-lab">Stated plainly</span>
+    <p>This recommendation is <b>reasoning, not evidence.</b> The frequencies are measured; the claim that a
+      recent price cut predicts call-answering is an inference about human behaviour, and there is no
+      outcome data in this system to test it against. The correct next step is to make it falsifiable:
+      have Lindsey log which signal triggered each call and whether it converted. After ~40 calls the
+      weights in §3 and §5 stop being judgement and start being fitted. <b>Until then, treat every weight
+      in this document as a hypothesis with a number attached, not a finding.</b></p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section id="provenance">
+  <div class="sec-head"><span class="sec-num">06</span><h2>Provenance and known gaps</h2></div>
+  <h4>What was measured</h4>
+  <ul class="tight measure">
+    <li>Live SearchApi <code>zillow</code> and <code>zillow_property</code> calls, 16 Aug 2026.</li>
+    <li><b>268</b> listings ≥$1M across 8 core ZIPs; <b>214</b> after the clean-residential filter.</li>
+    <li><b>466</b> all-price clean residential listings in 76107/76126/76132 for market baselines.</li>
+    <li><b>209</b> successful agent attributions (98% success rate) across 141 distinct agents.</li>
+    <li>Distances: haversine against GNIS/OSM centroids, independently cross-checked.</li>
+  </ul>
+  <h4>What was externally corroborated</h4>
+  <ul class="tight measure">
+    <li>Redfin Data Center trackers + listing export (5,804 active / 3,316 sold, region-wide, 90 days to
+      31 May 2026); Realtor.com ZIP inventory (Jul 2026); FRED median-list series; ILHM certified luxury
+      thresholds; Williams Trew and Briggs Freeman Sotheby's published segmentation.</li>
+    <li>Independently confirms: the $1M+ DOM premium (1.45× region-wide), the west-side median price levels,
+      the Walsh two-tier structure, and supplies the ILHM/$750K threshold authority the live feed could not.</li>
+    <li>Small-n neighbourhoods (Westover Hills, Montserrat, Rivercrest — 1–7 sales/quarter) have directional
+      $/sf only; treat as ranges. Sold-side DOM by price tier is not published — the band table uses active
+      listings, so the ratio is reliable but the absolute level runs high.</li>
+  </ul>
+  <h4>Known gaps — stated rather than papered over</h4>
+  <ul class="tight measure">
+    <li><b>No outcome data exists.</b> Every weight is calibrated to the shape of the distribution, not to
+      what actually converts. This is the largest single weakness of the model.</li>
+    <li><b>Concentration is not yet computable</b> — it needs the ≥$750K enrichment net.</li>
+    <li><b>Persistence is not yet computable</b> — it needs ~90 days of sweep history.</li>
+    <li><b>year_built is 8% populated</b>, so the renovation pitch (signal F) is not buildable as specified.</li>
+    <li><b>agent_license is 4% populated</b>, so agent identity depends on string normalisation and will
+      carry some error.</li>
+    <li><b>Sold-side prices do not exist in Texas</b>, capping the precision of the buyer-referral use case.</li>
+    <li>Submarket $/sf medians for 76179, 76248, 76049 were not computed — those ZIPs straddle the ring
+      edge and need per-listing radius filtering first.</li>
+  </ul>
+</section>
+
+<footer>
+  <p>Targeting methodology v1.0 · prepared for Lindsey Goble Interiors · built on the
+    <code>property-finder</code> sweep · all figures from a live feed sample of 16 August 2026.
+    Weights are hypotheses to be refitted against logged call outcomes.</p>
+</footer>
+
+</div>
