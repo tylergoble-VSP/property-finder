@@ -1,0 +1,19 @@
+# The luxury market to sweep — the 25-mile ring around Walsh Ranch. Centre is the same point
+# core's walsh-aledo watch uses. The place strings blanket the ring's luxury-bearing ZIPs;
+# the radius stays authoritative, so an over-broad string self-trims. Measured (ranked sweep):
+# these ZIPs hold ~120 luxury listings / ~74 agents; the top ~10 hold ~43% of volume.
+name: walsh-luxury-25mi
+center_address: "2112 Eastus Ln, Aledo, TX 76008"
+lat: 32.73665
+lon: -97.55626
+radius_miles: 25.0
+price_floor: 1500000       # user-chosen; absolute dollars, not a percentile (plan §4)
+max_pages: 3               # price_desc + early-stop means most strings cost 1-2 pages
+queries:
+  - "Aledo, TX 76008"
+  - "Fort Worth, TX 76126"      # Benbrook / Mira Vista corridor
+  - "Fort Worth, TX 76107"      # Westover Hills / Cultural District
+  - "Fort Worth, TX 76109"      # TCU / Colonial
+  - "Fort Worth, TX 76116"      # Ridglea
+  - "Fort Worth, TX 76132"      # Mira Vista
+  - "Willow Park, TX 76087"     # immediately west of Walsh
