@@ -510,7 +510,8 @@
     mortgage_rate: String(F.mortgage_rate),
     down_pct: String(F.down_pct),
     loan_term_years: String(F.loan_term_years),
-    insurance_annual_per_1000: String(F.insurance_annual_per_1000)
+    insurance_annual_per_1000: String(F.insurance_annual_per_1000),
+    stale_spec_days: plain(M.stale_spec_days)
   };
   function fill(html) {
     if (!html) return "";

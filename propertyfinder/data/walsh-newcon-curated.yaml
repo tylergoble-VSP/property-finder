@@ -397,9 +397,9 @@ leverage:
         spec home negotiable in a way a to-be-built home never is.</p>
     - heading: Where the leverage is
       html: >-
-        <p>Concentrate on the standing inventory that has aged. A finished home past 90 days is a
-        builder carrying real money, and it is the one place in new construction where the price is
-        genuinely soft. Ask what has already come off it — the ledger below tells you before you
+        <p>Concentrate on the standing inventory that has aged. A finished home past
+        [[stale_spec_days]] days is a builder carrying real money, and it is the one place in new
+        construction where the price is genuinely soft. Ask what has already come off it — the ledger below tells you before you
         walk in.</p>
         <p>Then ask for the incentive rather than the discount. Builders protect their published
         price because it sets the comp for every other home in the section, but they will spend far
@@ -476,8 +476,8 @@ builder_profiles:
         most customisable production builder here, with a real Dallas design centre and a two-phase
         process they brand Custom Construct. Their Walsh product is the top of the production market:
         60-foot and 70-foot lots running from $729,900 to a $1,449,990 standing home.'
-      highlight: Drees produced the single most striking event in this report. Between 17 and 26 July
-        every one of their eleven 70-foot plans was cut by exactly $85,000 at the same moment. Two
+      highlight: Drees produced the single most striking event this tool has recorded here — every
+        one of their eleven 70-foot plans cut by exactly $85,000 within one nine-day span. Two
         independent research passes through their site, their ten brochures and their raw page data
         found no public explanation, and their own data carries no was-and-now record — the new figures
         are presented as plain base prices. The likeliest lead, which nobody could confirm either
