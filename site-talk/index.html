@@ -235,6 +235,12 @@ button,input,select,textarea{font:inherit;color:inherit}
   .linklede { font-size: 0.8rem; line-height: 1.45; color: var(--quiet); max-width: 46ch; margin: 1.15rem 0 0.55rem; }
   .golink:hover { border-color: var(--gold); background: var(--surface); }
   .golink:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  /* The tool links: the same chip as .golink, dialled down. The three live products above stay
+     the slide's hero; these are the how-it-was-built row, and seven of them have to wrap inside
+     a fixed 720p frame — hence smaller type and tighter padding rather than a second full-size
+     row, which overflows the title frame outright. */
+  .toollink { font-size: 0.68rem; padding: 0.3rem 0.62rem; color: var(--quiet); border-color: var(--edge); }
+  .toollink:hover { border-color: var(--gold-soft); color: var(--gold); background: var(--surface); }
 
   .callout { border-left: 3px solid var(--alarm); background: var(--surface); padding: 0.9rem 1.2rem; border-radius: 0 6px 6px 0; max-width: 58ch; font-size: 0.96rem; }
   .callout b { color: var(--alarm); }
@@ -388,6 +394,7 @@ button,input,select,textarea{font:inherit;color:inherit}
     .cta { font-size: 0.635rem; padding: 0.42rem 0.78rem; }
     .linklede { font-size: 0.74rem; margin: 0.85rem 0 0.45rem; }
     .golinks { gap: 0.4rem 0.5rem; }
+    .toollink { font-size: 0.63rem; padding: 0.24rem 0.52rem; }
   }
 
   @media (max-width: 640px) {
@@ -429,6 +436,18 @@ button,input,select,textarea{font:inherit;color:inherit}
             <a class="golink" href="https://walsh-new-construction.vercel.app" target="_blank" rel="noopener">New-construction report &rarr;</a>
             <a class="golink" href="https://walsh-deal-map.vercel.app" target="_blank" rel="noopener">The deal map &rarr;</a>
             <a class="golink" href="https://walsh-luxury-agents.vercel.app" target="_blank" rel="noopener">Luxury agent finder &rarr;</a>
+          </div>
+          <p class="linklede">And what it was built with — the code itself, every tool named in
+          this talk, and the event it was given at:</p>
+          <div class="golinks">
+            <a class="golink toollink" href="https://github.com/tylergoble-VSP/property-finder" target="_blank" rel="noopener">The code on GitHub &rarr;</a>
+            <a class="golink toollink" href="https://claude.ai/download" target="_blank" rel="noopener">Download Claude &rarr;</a>
+            <a class="golink toollink" href="https://code.visualstudio.com/download" target="_blank" rel="noopener">Download VS Code &rarr;</a>
+            <a class="golink toollink" href="https://wisprflow.ai/r?TYLER2272" target="_blank" rel="noopener">Wispr Flow &rarr;</a>
+            <a class="golink toollink" href="https://circleback.ai/signup?ref=tyler.goble@vspartners.us" target="_blank" rel="noopener">Circleback &rarr;</a>
+            <a class="golink toollink" href="https://www.searchapi.io/" target="_blank" rel="noopener">SearchApi.io &rarr;</a>
+            <a class="golink toollink" href="https://vercel.com" target="_blank" rel="noopener">Vercel &rarr;</a>
+            <a class="golink toollink" href="https://www.victorysquarepartners.com/events/actual-intelligence" target="_blank" rel="noopener">Actual Intelligence &rarr;</a>
           </div>
         </div>
         <aside class="bio">
