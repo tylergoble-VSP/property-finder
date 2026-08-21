@@ -173,6 +173,25 @@ button,input,select,textarea{font:inherit;color:inherit}
   .bigpic-cap { font-size: 0.9rem; color: var(--quiet); max-width: 60ch; margin: 0.9rem auto 0; text-align: center; }
   .bigpic-cap b { color: var(--gold); font-weight: 700; }
 
+  /* the recording — sized by the frame it is given, not by the width it could fill.
+     The usual way to hold a 16:9 embed is a wrapper with `padding-bottom: 56.25%`, and a
+     percentage padding is a fraction of WIDTH. These slides are height-constrained (100dvh
+     minus the chrome), so that wrapper is ~647px tall on a 1150px stage and overflows a
+     1280x720 projector by the height of a paragraph — exactly the failure lesson 14 is
+     about, and one scripts/verify_page.py reports as an overflowing section. Container
+     units measure this box's own frame in BOTH axes, so whichever constraint binds first
+     is the one that sizes the video: never cropped, never letterboxed. The plain
+     `width: 100%` is first so a browser without container units still gets the
+     width-driven behaviour rather than a collapsed box. */
+  .videofit { flex: 1 1 auto; min-height: 0; container-type: size; display: grid; place-items: center; }
+  .videobox {
+    position: relative; aspect-ratio: 16 / 9;
+    width: 100%;
+    width: min(100cqw, calc(100cqh * 16 / 9));
+    border: 1px solid var(--edge); border-radius: 6px; overflow: hidden; background: #000;
+  }
+  .videobox iframe { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 0; }
+
   /* definitions / glossary */
   .defs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.85rem; max-width: 68rem; }
   @media (max-width: 860px) { .defs { grid-template-columns: 1fr 1fr; } }
@@ -472,6 +491,26 @@ button,input,select,textarea{font:inherit;color:inherit}
           <a class="cta" href="https://calendar.app.google/FWNmgDSmVot5Gcnd6" target="_blank" rel="noopener">
             Book a 30-minute call &rarr;</a>
         </aside>
+      </div>
+    </section>
+
+    <!-- ===================== THE RECORDING ===================== -->
+
+    <!-- V · THE WALKTHROUGH, ON VIDEO -->
+    <section class="slide" data-chap="video">
+      <p class="eyebrow"><span class="rule"></span>Watch it first · the recording</p>
+      <div class="videofit">
+        <div class="videobox">
+          <!-- src is deferred to `data-src` and mounted the first time this slide is shown (see
+               the nav script). Two reasons: opening the deck stays one request for one file,
+               which is the property every page in this repository is built to have; and
+               scripts/verify_page.py can render all of it without reaching a third party. -->
+          <iframe
+            data-src="https://www.loom.com/embed/78b5633b475f4539894ab8103178949b"
+            title="AIN Agent Development Process — a 64-minute screen recording of the whole build, end to end"
+            allow="fullscreen; picture-in-picture"
+            allowfullscreen></iframe>
+        </div>
       </div>
     </section>
 
@@ -1788,8 +1827,14 @@ button,input,select,textarea{font:inherit;color:inherit}
       s.classList.toggle('head', i === n);
     });
     counter.textContent = (n + 1) + ' / ' + slides.length;
+    // The recording is fetched the first time somebody actually walks to its slide, so
+    // opening the deck still costs one request for one file. Mounted once and the attribute
+    // dropped: reassigning a live iframe's src reloads the video and loses the viewer's place.
+    const frame = slides[n].querySelector('iframe[data-src]');
+    if (frame) { frame.src = frame.dataset.src; frame.removeAttribute('data-src'); }
     const ch = slides[n].dataset.chap;
     chaplabel.textContent = ch === 'title' ? 'A build story'
+      : ch === 'video' ? 'Watch it first — the recording'
       : ch === 'pic' ? 'Start here — the big picture'
       : ch === '0' ? 'Start here — the words'
       : ch === '2' ? 'Ch. II — the agent session'

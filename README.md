@@ -13,6 +13,24 @@ post-mortem that produced it, and **`docs/EXPERT-PLAN.md`** for the methodology 
 this tool considers "a deal" and why. The commit history is meant to be read: each commit
 is one bite-sized, tested step in the story of the construction.
 
+## Watch the walkthrough
+
+**[AIN Agent Development Process](https://www.loom.com/share/78b5633b475f4539894ab8103178949b)**
+— 64 minutes, the whole thing end to end: voice-planning with Wispr Flow, Claude Code driving
+VS Code and GitHub, Zillow data through a search API, hosting on Vercel, and why planning,
+testing and *external* verification are what keep an agent from hallucinating or acting
+unsafely. Forty-six commits, link-backed outputs, and a ZIP-code run that took about eleven
+minutes.
+
+<!-- Deliberately a link and not an <iframe>. GitHub's markdown sanitiser strips iframe
+     elements outright, so an embed here renders as nothing at all — the video plays inline on
+     slide 2 of the deck (site-talk/index.html), where a static host serves our own bytes and
+     an iframe survives. Anyone "fixing" this by pasting the embed code back in will produce a
+     blank space on github.com. -->
+
+The same recording is slide 2 of the deck, where it plays inline:
+**[so-easy-a-grunt-could-do-it.vercel.app](https://so-easy-a-grunt-could-do-it.vercel.app)**.
+
 ## Quick start
 
 ```bash
@@ -78,7 +96,8 @@ All four are live, and all four rebuild themselves from a fresh sweep.
 ### The talk
 
 - **[So Easy A Grunt Could Do It](https://so-easy-a-grunt-could-do-it.vercel.app)** — the
-  deck. Thirty-one slides on how all of the above got built, and what broke on the way.
+  deck. Thirty-two slides on how all of the above got built, and what broke on the way —
+  the second of them a screen recording of the walkthrough.
   Source in `site-talk/`.
 - **[Actual Intelligence](https://www.victorysquarepartners.com/events/actual-intelligence)**
   — the Victory Square Partners event the talk was given at.

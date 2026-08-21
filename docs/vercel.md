@@ -112,7 +112,7 @@ file of the same shape, checkable by the same script:
 | Target | Manifest | What it is | Republish with |
 |---|---|---|---|
 | the reports site | `site-manifest.yaml` | the watch's pages, private behind `SITE_PASSWORD` plus two public pages | `scripts/deploy.sh` |
-| the talk deck | `site-talk/publish-manifest.yaml` | 31 slides, its own project (it ships an image asset the reports copier would refuse) | `npx vercel deploy --prod --yes --cwd site-talk` |
+| the talk deck | `site-talk/publish-manifest.yaml` | 32 slides, its own project (it ships an image asset and a Loom embed the reports copier would refuse) | `npx vercel deploy --prod --yes --cwd site-talk` |
 | the agent ledger | `annex/agent-finder/publish-manifest.yaml` | the annex's luxury listing-agent outreach page, its own project | `scripts/publish_ledger.sh` |
 | the Crockett shortlist | `publish/crockett-75835/publish-manifest.yaml` | ZIP 75835 screened to 4+ beds and 3,000+ sq ft, its own project, no auth gate anywhere in it | `scripts/publish_crockett.sh` |
 
