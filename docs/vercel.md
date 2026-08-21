@@ -83,6 +83,40 @@ scripts/deploy.sh                 # build_site.py, then npx vercel deploy --prod
 propertyfinder daily --deploy     # the whole daily pipeline, chaining scripts/deploy.sh last
 ```
 
+### Verify from outside, as a visitor
+
+Nothing the deploying machine saw counts. After the upload, `scripts/deploy.sh` runs
+`scripts/verify_deploy.py` against `SITE_BASE_URL` and fetches every path the manifest names,
+following no redirects: a `public` path must answer 200 with real bytes and no login redirect, a
+`private` one must be refused, and any `og:image` in the served response must be absolute.
+
+```bash
+SITE_BASE_URL=https://property-finder.vercel.app scripts/deploy.sh
+.venv/bin/python scripts/verify_deploy.py https://property-finder.vercel.app   # by hand
+```
+
+`SITE_BASE_URL` must be the **production alias**, not a per-deployment URL. Vercel leaves the
+alias public and SSO-gates the long `project-hash.vercel.app` address — that one 302s to a login
+page — and `vercel deploy`'s success line distinguishes neither, so sharing the wrong one hands
+an audience a password prompt. Point the checker at the long URL and every public assertion
+fails, correctly. With `SITE_BASE_URL` unset the check is skipped with a loud `NOT VERIFIED`
+line on stderr rather than quietly: a pipeline whose silence is indistinguishable from success
+will eventually be silent.
+
+### The pages this project publishes
+
+| Path | Visibility | Built by |
+|---|---|---|
+| `/walsh-aledo` | private | `report` (the canonical page: the map where a sold companion exists) |
+| `/walsh-aledo-map` | private | `map` |
+| `/walsh-new-construction` | public | `report --kind newcon --public` |
+| `/walsh-deal-map` | public | `map --public` |
+
+A `--public` render uses the model's own market-neutral `FinanceAssumptions` in place of the
+watch's block and writes a `-public` filename; a private render never writes one. The two halves
+therefore occupy disjoint filename spaces, which is what makes a private page unpublishable by a
+typo, and `tests/test_public_pages.py` audits every `public` entry's embedded payload.
+
 `scripts/deploy.sh` refuses outright — before ever calling `vercel` — if `site/` does not
 exist or holds no real page (an empty `site-manifest.yaml` is valid and produces exactly
 that shape: an index with nothing to link). Point your scheduler at
