@@ -30,3 +30,57 @@ Secrets live in `.env` (never committed): `SEARCHAPI_API_KEY`, and optionally
 `PROPERTYFINDER_DB_PATH`, `QUOTA_CAP_SEARCHAPI_MONTHLY`, and the SMTP settings `daily`
 mails its digest through (unset means it prints the digest instead of sending it). See
 `docs/scheduling.md` for running `daily` on a timer.
+
+## Links
+
+Everything this project points at, in one place — the tools it was built with, what it
+produced, and the talk that walks through both.
+
+### The tools
+
+Five of these six are free or flat-rate; SearchApi.io is the only one that costs anything
+per use.
+
+- **[Claude](https://claude.ai/download)** — the agent that wrote this repository, commit by
+  commit, from the plan in `docs/REBUILD.md`. The desktop app; `claude` on the command line
+  is what actually did the work here.
+- **[Visual Studio Code](https://code.visualstudio.com/download)** — the editor. Free. Used
+  here mostly as a place to watch files change and read a diff.
+- **[Wispr Flow](https://wisprflow.ai/r?TYLER2272)** — dictation. Most of the instructions
+  that produced this code were spoken rather than typed, which matters more than it sounds:
+  the bottleneck in agentic development is how fast you can describe what you want.
+- **[Circleback](https://circleback.ai/signup?ref=tyler.goble@vspartners.us)** — meeting
+  notes. Not part of the build, but part of the working day around it: the decisions that
+  became `docs/REBUILD.md` were argued out loud in meetings first.
+- **[SearchApi.io](https://www.searchapi.io/)** — the listings feed behind
+  `SEARCHAPI_API_KEY`. The one component that spends real money per call, which is why
+  `QUOTA_CAP_SEARCHAPI_MONTHLY` exists and why the test suite never touches the network.
+- **[Vercel](https://vercel.com)** — where the reports get published. A static host, one
+  command, and the password gate at the edge that keeps the private pages private
+  (`docs/vercel.md`).
+
+### What it produced
+
+All three are live, and all three rebuild themselves from a fresh sweep.
+
+- **[The new-construction report](https://walsh-new-construction.vercel.app)** — the buyer's
+  report for a single market's new builds.
+- **[The deal map](https://walsh-deal-map.vercel.app)** — every active listing, scored, on a
+  map. Public, and privacy-sanitised by construction rather than by hand
+  (`docs/PORTING-THE-REPORTS.md`).
+- **[The luxury agent finder](https://walsh-luxury-agents.vercel.app)** — built by the agent
+  on its own initiative, from the `annex/agent-finder` sub-project.
+
+### The talk
+
+- **[So Easy A Grunt Could Do It](https://so-easy-a-grunt-could-do-it.vercel.app)** — the
+  deck. Thirty-one slides on how all of the above got built, and what broke on the way.
+  Source in `site-talk/`.
+- **[Actual Intelligence](https://www.victorysquarepartners.com/events/actual-intelligence)**
+  — the Victory Square Partners event the talk was given at.
+
+### The code
+
+- **[github.com/tylergoble-VSP/property-finder](https://github.com/tylergoble-VSP/property-finder)**
+  — this repository. The commit history is the story: each commit is one tested step, and
+  `docs/REBUILD.md` is the plan they were built from.

@@ -31,8 +31,9 @@ and a `<title>` sitting in the body where a browser ignores it entirely
 .venv/bin/python scripts/verify_page.py site-talk/index.html --viewport 1920x1080
 ```
 
-The harness measures every slide as a fixed frame and fails on any that overflows, in both
-theme states. Twelve of these thirty-one slides overflowed at 1280×720 — a projector's reality
+The harness measures every slide as a fixed frame and fails on any that overflows, in all four
+theme states (system dark and light, plus an explicit choice against the opposite system
+preference). Twelve of these thirty-one slides overflowed at 1280×720 — a projector's reality
 — while all thirty-one fitted at the 1920×1080 they were authored at. The fix was the
 `@media (max-height: 820px)` block in `index.html`, which tightens vertical rhythm and caps
 figure heights rather than touching the full-size design, and the harness is what keeps it

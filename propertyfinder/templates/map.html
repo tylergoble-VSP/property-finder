@@ -38,8 +38,17 @@
     --v-over: #b3261e;
     --v-none: #9aa098;
   }
+  /*
+    Theme has three states, not two. An explicit reader choice stamps data-theme="dark" or
+    "light" on the root; the default "system" setting stamps NOTHING, and only
+    prefers-color-scheme separates light from dark there — which is most readers. So the media
+    query is guarded against an explicit light choice, and the explicit dark choice gets its own
+    block below, so a toggle wins in both directions rather than being silently ignored.
+    scripts/verify_page.py compares the painted background across all four states; it is what
+    found this page ignoring an explicit choice, and painting the opposite of what was asked.
+  */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --page: #0e100f;
       --surface: #181b19;
       --surface-2: #1f2320;
@@ -59,6 +68,26 @@
       --v-none: #7d857c;
     }
   }
+  :root[data-theme="dark"] {
+    --page: #0e100f;
+    --surface: #181b19;
+    --surface-2: #1f2320;
+    --ink: #f2f4f1;
+    --ink-soft: #c3c9c1;
+    --muted: #8b928a;
+    --border: #2b302b;
+    --hairline: #23261f;
+    --accent: #5cc47e;
+    --accent-soft: #14241a;
+    --good: #5cc47e;
+    --bad: #e6685f;
+    --v-great: #5cc47e;
+    --v-good: #86cf9b;
+    --v-fair: #d9b45c;
+    --v-over: #e6685f;
+    --v-none: #7d857c;
+  }
+
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   html { background: var(--page); }
@@ -598,12 +627,22 @@
 
     var map = L.map("pf-map", { scrollWheelZoom: false })
       .setView([payload.watch.lat, payload.watch.lon], 13);
-    var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/rastertiles/" + (dark ? "dark_all" : "voyager") +
-      "/{z}/{x}/{y}{r}.png",
-      { maxZoom: 19, attribution: "&copy; OpenStreetMap, &copy; CARTO" }
-    ).addTo(map);
+    // Three states here too: an explicit choice on the root wins, and only where there is none
+    // does the system preference decide. Resolved again on the change event, because a reader
+    // who switches theme mid-visit would otherwise be left with the other theme's tiles.
+    function tileUrl() {
+      var choice = document.documentElement.getAttribute("data-theme");
+      var dark = choice === "dark" ||
+        (choice !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      return "https://{s}.basemaps.cartocdn.com/rastertiles/" +
+        (dark ? "dark_all" : "voyager") + "/{z}/{x}/{y}{r}.png";
+    }
+    var tiles = L.tileLayer(tileUrl(),
+      { maxZoom: 19, attribution: "&copy; OpenStreetMap, &copy; CARTO" }).addTo(map);
+    var media = window.matchMedia("(prefers-color-scheme: dark)");
+    var reresolve = function () { tiles.setUrl(tileUrl()); };
+    if (media.addEventListener) media.addEventListener("change", reresolve);
+    else if (media.addListener) media.addListener(reresolve);
 
     L.circle([payload.watch.lat, payload.watch.lon], {
       radius: payload.watch.radius_miles * 1609.34,
