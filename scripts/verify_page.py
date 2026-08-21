@@ -29,9 +29,15 @@ WHAT IT CATCHES, all of it a bug that actually shipped or nearly did:
 
 TWO TRAPS, WRITTEN DOWN SO NOBODY REDISCOVERS THEM:
 
-  * Headless Chrome defaults to dark and **ignores** --force-prefers-color-scheme. The switch
-    that works is --blink-settings=preferredColorScheme=1 (dark) or =2 (light), and both are
-    run, because a colour defined in only one theme state is a bug in the other.
+  * Headless Chrome defaults to dark and **ignores** --force-prefers-color-scheme entirely —
+    passing `=light` still renders dark, so a harness that trusted it would silently check one
+    state twice. --blink-settings=preferredColorScheme is the switch that works, but MEASURE
+    THE ENUM rather than trusting a note about it: on Chrome 151, `=1` and `=2` both render
+    LIGHT, `=0` renders dark, and omitting the flag renders dark. docs/PORTING-THE-REPORTS.md
+    lesson 15 records `=1` as dark, which is how this file first shipped rendering light twice
+    and reporting two clean theme states. `python3 scripts/verify_page.py --probe-themes`
+    re-measures it against whatever Chrome is installed; if the table below stops matching,
+    that is the thing to run.
   * --screenshot resets scroll position, so isolating a section into its own viewport beats
     trying to scroll to it. Nothing here screenshots for that reason; the probe measures
     geometry in the page and reports numbers instead.
@@ -71,15 +77,33 @@ CHROME_CANDIDATES = (
     "/usr/bin/chromium-browser",
 )
 
-# preferredColorScheme: 1 is dark, 2 is light. Not a typo, and not the switch you would guess.
-THEMES = {"dark": 1, "light": 2}
+# The four states this page's CSS claims to handle, and how to put a browser into each.
+#
+# `system` means no explicit choice is stamped on the root — which is MOST readers, and the
+# state a colour defined only inside a [data-theme] block never reaches. `explicit` means the
+# reader chose, which has to win over the system preference in both directions.
+#
+# Measured against Chrome 151 by `--probe-themes`, not copied from a note: preferredColorScheme
+# `=0` renders dark and `=1` renders light. Do not swap these on the strength of documentation.
+THEMES = {
+    "system-dark": {"flags": ["--blink-settings=preferredColorScheme=0"], "attr": None},
+    "system-light": {"flags": ["--blink-settings=preferredColorScheme=1"], "attr": None},
+    # The explicit choice is tested against the OPPOSITE system preference, because that is the
+    # combination a one-sided palette gets wrong: a toggle has to win, not merely agree.
+    "explicit-dark": {"flags": ["--blink-settings=preferredColorScheme=1"], "attr": "dark"},
+    "explicit-light": {"flags": ["--blink-settings=preferredColorScheme=0"], "attr": "light"},
+}
 
-# What each page is expected to draw, per payload script id. Explicit rather than inferred: a
-# clever general rule would have to guess which payload arrays reach the map (the buyer report
-# places plan sheets and standing homes but not resales), and a wrong guess in a verifier is
-# worse than no verifier. `count` takes the payload and returns the number the DOM should hold.
-PAGE_EXPECTATIONS = {
-    "nc-payload": [
+# What each page is expected to draw. Explicit rather than inferred: a clever general rule
+# would have to guess which payload arrays reach the map (the buyer report places plan sheets
+# and standing homes but not resales), and a wrong guess in a verifier is worse than no
+# verifier. `count` takes the payload and returns the number the DOM should hold.
+#
+# Keyed on a marker in the page's own markup rather than on the payload script's id, because
+# map.html and report.html both call theirs `pf-payload` — keying on the id alone measured the
+# table page against the map page's selectors and reported five phantom failures.
+PAGE_EXPECTATIONS = [
+    ("newcon report", 'id="nc-payload"', [
         ("map markers", ".leaflet-interactive",
          lambda p: _placed(p["specs"]) + _placed(p["plans"])),
         ("plan table rows", "#plans-table tbody tr", lambda p: len(p["plans"])),
@@ -87,15 +111,31 @@ PAGE_EXPECTATIONS = {
         ("builder cards", "#builder-cards .bcard", lambda p: len(p["builders"])),
         ("ask-curve panels", "#curve-facets .facet",
          lambda p: len({r["builder"] for r in p["plans"]})),
-    ],
+    ]),
     # The map page draws one extra interactive path that is not a home: the dashed circle
     # showing the watch's radius. Counting it as a marker would make this check permanently
     # off by one, and a check that is always one out is a check nobody reads.
-    "pf-payload": [
+    ("deal map", 'id="pf-map"', [
         ("map markers", ".leaflet-interactive", lambda p: _placed(p["listings"]) + 1),
         ("deal cards", "#pf-deals .deal", lambda p: len(p["listings"])),
-    ],
-}
+    ]),
+    ("listing table", 'id="pf-listings"', [
+        ("listing rows", "#pf-listings tbody tr", lambda p: len(p["listings"])),
+    ]),
+]
+
+
+def expectations_for(page: str) -> list[tuple]:
+    """The count checks that apply to this page, or none where the page is not one we know.
+
+    A page with no entry here is still checked for leaked placeholders, overflow, theme
+    response and console errors — it just has no counts to compare. That is the honest answer
+    for a hand-authored page like the talk deck, which has no payload behind it at all.
+    """
+    for _, marker, checks in PAGE_EXPECTATIONS:
+        if marker in page:
+            return checks
+    return []
 
 
 def _placed(rows: list[dict]) -> int:
@@ -106,6 +146,10 @@ def _placed(rows: list[dict]) -> int:
 # so that a failure prints what was found rather than only that something was wrong.
 PROBE = """
 <script>
+(function () {
+  var choice = THEME_ATTR;
+  if (choice) document.documentElement.setAttribute("data-theme", choice);
+})();
 window.addEventListener("load", function () {
   setTimeout(function () {
     var doc = document.documentElement;
@@ -157,7 +201,11 @@ window.addEventListener("load", function () {
 
     var result = {
       viewport: [window.innerWidth, window.innerHeight],
-      dark: window.matchMedia("(prefers-color-scheme: dark)").matches,
+      system_dark: window.matchMedia("(prefers-color-scheme: dark)").matches,
+      data_theme: doc.getAttribute("data-theme"),
+      // The colour actually painted. A theme run that produced the same background twice was
+      // never two runs, and this is what makes that visible instead of assumed.
+      background: getComputedStyle(document.body).backgroundColor,
       page_overflow_x: doc.scrollWidth - window.innerWidth,
       text_length: text.length,
       slides: document.querySelectorAll(".slide").length,
@@ -222,9 +270,11 @@ def payload_of(page: str) -> tuple[str | None, dict]:
 def run(path: Path, theme: str, viewport: tuple[int, int], timeout: int) -> tuple[dict, list[str]]:
     """Render one page in one theme state and return (the probe's report, console errors)."""
     page = path.read_text()
-    payload_id, _ = payload_of(page)
-    selectors = [selector for _, selector, _ in PAGE_EXPECTATIONS.get(payload_id, [])]
-    probe = PROBE.replace("SELECTORS", json.dumps(selectors))
+    selectors = [selector for _, selector, _ in expectations_for(page)]
+    state = THEMES[theme]
+    probe = PROBE.replace("SELECTORS", json.dumps(selectors)).replace(
+        "THEME_ATTR", json.dumps(state["attr"])
+    )
 
     with tempfile.TemporaryDirectory() as tmp:
         copy = Path(tmp) / path.name
@@ -244,7 +294,7 @@ def run(path: Path, theme: str, viewport: tuple[int, int], timeout: int) -> tupl
                 "--no-sandbox",
                 "--hide-scrollbars",
                 f"--window-size={viewport[0]},{viewport[1]}",
-                f"--blink-settings=preferredColorScheme={THEMES[theme]}",
+                *state["flags"],
                 "--virtual-time-budget=6000",
                 "--enable-logging=stderr",
                 "--log-level=0",
@@ -279,10 +329,97 @@ def run(path: Path, theme: str, viewport: tuple[int, int], timeout: int) -> tupl
     return json.loads(body), errors
 
 
+def probe_themes() -> int:
+    """What each flag actually does in the installed Chrome. Measure; never assume.
+
+    Exists because this harness shipped with the enum backwards, copied from a note, and
+    therefore rendered light twice while reporting two clean theme states. A one-command
+    answer is the difference between a trap written down and a trap avoided.
+    """
+    page = (
+        "<!doctype html><html><head><style>:root{--bg:#ffffff}"
+        '@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#000000}}'
+        ':root[data-theme="dark"]{--bg:#000000}body{background:var(--bg)}</style></head><body>'
+        '<pre id="pf-verify"></pre><script>document.getElementById("pf-verify").textContent='
+        '"__PF_VERIFY" + "_BEGIN__" + JSON.stringify({dark:'
+        'window.matchMedia("(prefers-color-scheme: dark)").matches,'
+        'bg:getComputedStyle(document.body).backgroundColor}) + "__PF_VERIFY" + "_END__";'
+        "</script></body></html>"
+    )
+    trials = [("(no flag)", [])] + [
+        (f"preferredColorScheme={n}", [f"--blink-settings=preferredColorScheme={n}"])
+        for n in range(4)
+    ] + [("--force-prefers-color-scheme=light", ["--force-prefers-color-scheme=light"])]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "probe.html"
+        path.write_text(page)
+        for label, flags in trials:
+            result = subprocess.run(
+                [chrome(), "--headless", "--disable-gpu", "--no-sandbox",
+                 "--virtual-time-budget=3000", *flags, "--dump-dom", path.resolve().as_uri()],
+                capture_output=True, text=True, timeout=60,
+            )
+            block = re.search(r'<pre id="pf-verify">(.*?)</pre>', result.stdout, re.S)
+            if not block:
+                print(f"{label:38s} -> no answer")
+                continue
+            body = html.unescape(block.group(1)).split(BEGIN, 1)[1].split(END, 1)[0]
+            found = json.loads(body)
+            print(f"{label:38s} -> {'DARK' if found['dark'] else 'light':5s}  {found['bg']}")
+    print("\nUse a flag that reports DARK for the dark states. Chrome 151: `=0` and no flag.")
+    return 0
+
+
+def theme_failures(path: Path, painted: dict[str, str]) -> list[Failure]:
+    """Did the PAGE respond to each state, or only the browser?
+
+    Entering a state proves nothing about the stylesheet. Theme has three states, not two: an
+    explicit reader choice stamps data-theme on the root, and the default "system" setting
+    stamps nothing, so a colour defined only inside a [data-theme] block never applies to most
+    readers — and a media query that is not guarded against an explicit *light* choice ignores
+    a reader who asked for light on a dark machine. Both mistakes are invisible unless the
+    painted colour is compared across the states, which is what this does.
+    """
+    failures: list[Failure] = []
+    have = set(painted)
+    if {"system-dark", "system-light"} <= have:
+        if painted["system-dark"] == painted["system-light"]:
+            failures.append(Failure(path.name, "system-dark/light",
+                f"the page paints {painted['system-dark']} whether the system asks for dark or "
+                "light — with no explicit choice stamped, which is most readers, only "
+                "prefers-color-scheme separates the two"))
+    for explicit, system in (("explicit-dark", "system-dark"), ("explicit-light", "system-light")):
+        if {explicit, system} <= have and painted[explicit] != painted[system]:
+            failures.append(Failure(path.name, explicit,
+                f"an explicit data-theme choice paints {painted[explicit]} where the same theme "
+                f"chosen by the system paints {painted[system]} — the reader's toggle does not "
+                "win against the opposite system preference"))
+    return failures
+
+
 def check(path: Path, theme: str, viewport: tuple[int, int], timeout: int) -> list[Failure]:
     report, errors = run(path, theme, viewport, timeout)
-    payload_id, payload = payload_of(path.read_text())
+    page = path.read_text()
+    _, payload = payload_of(page)
     failures = [Failure(path.name, theme, f"console: {e}") for e in errors]
+
+    # Did the browser actually enter the state it was asked for? This harness once rendered
+    # light in both of its two "theme states" for weeks' worth of runs, because the enum in the
+    # note it was written from was backwards. A state that cannot be entered is worse than a
+    # state that is not tested, since it reports a pass.
+    wants_dark = theme.endswith("dark")
+    got_dark = report["data_theme"] == "dark" or (
+        report["data_theme"] != "light" and report["system_dark"]
+    )
+    if wants_dark != got_dark:
+        failures.append(
+            Failure(path.name, theme,
+                    f"the browser never entered this state — asked for "
+                    f"{'dark' if wants_dark else 'light'}, got system_dark="
+                    f"{report['system_dark']}, data-theme={report['data_theme']!r}, "
+                    f"background {report['background']}. Run --probe-themes.")
+        )
 
     for needle, context in report["forbidden"].items():
         failures.append(
@@ -307,7 +444,7 @@ def check(path: Path, theme: str, viewport: tuple[int, int], timeout: int) -> li
                     f"{section['dy']}px down")
         )
 
-    for label, selector, expected in PAGE_EXPECTATIONS.get(payload_id, []):
+    for label, selector, expected in expectations_for(page):
         want = expected(payload)
         got = report["counts"].get(selector, 0)
         if got != want:
@@ -322,7 +459,7 @@ def check(path: Path, theme: str, viewport: tuple[int, int], timeout: int) -> li
                     f"only {report['text_length']} characters of visible text — the page "
                     "rendered, but almost nothing is on it")
         )
-    return failures
+    return failures, report
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -338,29 +475,41 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--theme",
-        choices=(*THEMES, "both"),
-        default="both",
-        help="which theme state to render (default: both, because a colour defined in only "
-        "one of them is a bug in the other)",
+        choices=(*THEMES, "all"),
+        default="all",
+        help="which theme state to render (default: all four — system dark and light, plus an "
+        "explicit choice against the opposite system preference, because a colour defined in "
+        "only one state is a bug in the others)",
+    )
+    parser.add_argument(
+        "--probe-themes",
+        action="store_true",
+        help="report what each theme flag actually does in the installed Chrome, and exit. Run "
+        "this rather than trusting any note about the preferredColorScheme enum.",
     )
     parser.add_argument("--timeout", type=int, default=90, help="seconds per render")
     args = parser.parse_args(argv)
 
     width, height = (int(n) for n in args.viewport.lower().split("x"))
-    themes = list(THEMES) if args.theme == "both" else [args.theme]
+    if args.probe_themes:
+        return probe_themes()
+    themes = list(THEMES) if args.theme == "all" else [args.theme]
 
     failures: list[Failure] = []
     for path in args.pages:
         if not path.is_file():
             raise SystemExit(f"{path} does not exist — build it first")
+        painted: dict[str, str] = {}
         for theme in themes:
-            found = check(path, theme, (width, height), args.timeout)
+            found, report = check(path, theme, (width, height), args.timeout)
+            painted[theme] = report["background"]
             state = f"{len(found)} problem(s)" if found else "ok"
             print(f"{path.name} · {width}×{height} · {theme} · {state}")
             failures.extend(found)
+        failures.extend(theme_failures(path, painted))
 
     if not failures:
-        print(f"\nall clear: {len(args.pages)} page(s) × {len(themes)} theme(s)")
+        print(f"\nall clear: {len(args.pages)} page(s) × {len(themes)} theme state(s)")
         return 0
     print(f"\n{len(failures)} problem(s):", file=sys.stderr)
     for failure in failures:

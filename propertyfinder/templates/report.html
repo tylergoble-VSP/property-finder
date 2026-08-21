@@ -18,8 +18,14 @@
     --good: #0b6b2e;
     --bad: #b3261e;
   }
+  /*
+    Theme has three states, not two. An explicit reader choice stamps data-theme on the root;
+    the default "system" setting stamps nothing, and only prefers-color-scheme separates light
+    from dark there. So the media query is guarded against an explicit light choice, and the
+    explicit dark choice is repeated below, so a toggle wins in both directions.
+  */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --page: #0e100f;
       --surface: #181b19;
       --ink: #f2f4f1;
@@ -32,6 +38,19 @@
       --good: #5cc47e;
       --bad: #e6685f;
     }
+  }
+  :root[data-theme="dark"] {
+    --page: #0e100f;
+    --surface: #181b19;
+    --ink: #f2f4f1;
+    --ink-soft: #c3c9c1;
+    --muted: #8b928a;
+    --border: #2b302b;
+    --hairline: #23261f;
+    --accent: #5cc47e;
+    --accent-soft: #14241a;
+    --good: #5cc47e;
+    --bad: #e6685f;
   }
   * { box-sizing: border-box; }
   html { background: var(--page); }

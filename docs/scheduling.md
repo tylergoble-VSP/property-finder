@@ -151,7 +151,12 @@ error on the console.
 .venv/bin/python scripts/verify_page.py reports/*.html --viewport 1920x1080
 ```
 
-It renders both theme states by default, because a colour defined in only one of them is a bug
-in the other. It is **not** a member of the test suite: the suite stays offline and browser-free
+It renders **four** theme states by default — system dark, system light, and an explicit
+`data-theme` choice against the opposite system preference — because theme has three states, not
+two, and a colour defined in only one of them is a bug in the others. It compares the painted
+background across those states, so a stylesheet that ignores an explicit choice fails here
+rather than on somebody's screen, and it fails a run whose browser never entered the state it
+asked for. Run `--probe-themes` to see what each Chrome flag actually does; do not trust a note
+about the enum, including this one. It is **not** a member of the test suite: the suite stays offline and browser-free
 (`tests/test_map_page.py` explains the division of labour), and this covers exactly the layer
 the suite deliberately does not. Run it after any template change, before deploying.

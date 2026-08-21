@@ -312,13 +312,23 @@ deploying machine saw.
 `data-theme="dark"` or `"light"` on the root; the default "system" setting stamps
 *nothing*, and only `prefers-color-scheme` separates light from dark. A colour defined
 solely inside a `[data-theme]` block therefore never applies in the unstamped state —
-which is most readers. The working pattern, already used by `templates/map.html` and to
-be used verbatim by the new template: define the complete light palette as tokens on
+which is most readers. The working pattern — which `templates/map.html` did **not** in
+fact use when this was written, and which the new template uses verbatim: define the
+complete light palette as tokens on
 bare `:root`; redefine tokens under `@media (prefers-color-scheme: dark)` guarded as
 `:root:not([data-theme="light"])`; redefine them again under `:root[data-theme="dark"]`
 so an explicit toggle wins in both directions. A Leaflet tile layer must resolve its
 tile URL through the same three-state logic and re-resolve it if the reader switches
-mid-visit — the map page already listens to the `matchMedia` change event; keep that.
+mid-visit.
+
+> **Correction, 2026-08-21.** `map.html` carried the two-state form, not this one, and did
+> not listen to the `matchMedia` change event either — nor did `report.html`. Both ignored an
+> explicit `data-theme` choice completely, and worse, painted the *opposite* of what a reader
+> asked for: `data-theme="light"` on a dark system rendered dark. Nothing in the repository
+> stamped the attribute, so nothing had ever exercised it. `scripts/verify_page.py` found it
+> once it compared the painted background across all four states rather than trusting that
+> entering a state proved anything; both templates now carry the three-state pattern above and
+> a tile layer that re-resolves on the change event.
 
 **14. Design for the projector, not the laptop.** Twelve of the deck's thirty-one
 slides overflowed at 1280×720 — a projector's reality — while all thirty-one fit at
@@ -337,7 +347,17 @@ are worth writing down so nobody rediscovers them: headless Chrome defaults to d
 *ignores* `--force-prefers-color-scheme`; use
 `--blink-settings=preferredColorScheme=1` (dark) or `=2` (light) to test both theme
 states. And `--screenshot` resets scroll position, so isolating a section into its own
-viewport beats trying to scroll to it. The original rebuilt this harness from scratch
+viewport beats trying to scroll to it.
+
+> **Correction, measured 2026-08-21 against Chrome 151.** The enum above is backwards, and
+> `scripts/verify_page.py` shipped with the error copied from here: `preferredColorScheme=1`
+> renders **light**, not dark. `=0` renders dark, and so does omitting the flag entirely — which
+> is the "headless defaults to dark" behaviour this lesson already notes. The consequence was a
+> harness that rendered light twice and reported two clean theme states for both. The rule that
+> replaces the note: **measure the enum, never quote it.** `verify_page.py --probe-themes`
+> prints what each flag actually does in the installed browser, and the harness now fails a run
+> whose browser did not enter the state it asked for. (The claim that
+> `--force-prefers-color-scheme` is ignored is confirmed: `=light` still renders dark.) The original rebuilt this harness from scratch
 every time it was needed, which is why it was sometimes skipped. The rule: commit it
 once as `scripts/verify_page.py` — visible-text grep for `${` / `undefined` / `NaN`,
 element counts against the embedded payload, overflow detection at a stated viewport,
