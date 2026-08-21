@@ -1,0 +1,1368 @@
+# Everything in the Walsh new-construction report that a person researched rather than a
+# database computed. Builds READ this file. Nothing ever writes it.
+#
+# WHY IT IS A SEPARATE FILE. The original report kept machine-derived aggregates — builder
+# plan counts, medians, cut totals — in the same JSON as hand-researched prose, and the
+# refresh carried the whole thing forward. Builders appeared in the roster table holding
+# plans they no longer had, and the cheapest-plan column rendered `undefined`. The rule that
+# follows is physical rather than disciplinary: derived blocks are recomputed on every build
+# from the database, curated blocks are read from here, and `pagebuild.render`'s
+# exactly-one-payload-token contract forces them to meet in exactly one place where a test
+# can check the boundary (docs/PORTING-THE-REPORTS.md, lesson 5).
+#
+# It is also the backup. The first refresh in the original rewrote its payload in place
+# before anyone had copied it, and the builder roster survived only by luck. Curated research
+# does not live in a file a build writes to; it lives here, and git is the backup (lesson 8).
+#
+# NUMBERS IN PROSE. A sentence in a template does not know the database moved. The original
+# hardcoded "Across 26 days", "and one increase", "since 11 July" and "five sweeps", and every
+# one of them was wrong within a fortnight. So prose here never states a number the database
+# knows: it writes `[[window_from]]`, `[[n_sweeps]]`, `[[ad_valorem]]`, and the template
+# substitutes from the payload at render time. Prose that cannot drift is prose that does not
+# have to be re-read every month. Numbers that are genuinely hand-researched constants — the
+# component tax rates, a warranty term, a PID instalment — are written out, because nothing
+# computes them and their source is recorded beside them.
+#
+# EVERY BLOCK CARRIES `provenance`. Source, the date it was read, and what would make it
+# stale — the third field being the one that turns a citation into an instruction. A block
+# whose `stale_when` has happened is a block to re-research, and a reader of this file should
+# be able to tell without opening a browser.
+
+place:
+  provenance:
+    source: >-
+      Walsh's own community, builder and amenity pages; Aledo ISD; City of Fort Worth
+      planning and TIRZ documents; developer build-out statements.
+    verified_on: "2026-08-21"
+    stale_when: >-
+      A new neighbourhood phase opens, the H-E-B or UTA campus dates move, or the developer
+      restates the build-out horizon.
+  heading: A 7,200-acre cattle ranch, developed on a fifty-year clock
+  lede: >-
+    Walsh is not a subdivision that happened to get big. The Walsh family have held this land
+    since the 1930s, ran one of the country's premier Charolais cattle operations on it, and in
+    2015 chose a development partner from a national search of more than forty firms. What that
+    buys you as a resident is unusual continuity — and it is worth understanding what is built
+    today versus what is still a drawing.
+  columns:
+    - blocks:
+        - heading: What is actually there now
+          html: >-
+            <p>The <strong>Athletic Club</strong> is a 10,000 square foot facility at 13757
+            Assembly Park Drive, open every day from 5am to 10pm — cardio, free weights, a
+            movement studio, with personal training and a kids' club charged separately.
+            Alongside it sit a resort-style family pool with beach entry, slides and a swim-up
+            island, and a separate <strong>six-lane Junior Olympic lap pool</strong>, both open
+            May through October.</p>
+            <p>Beyond the obvious, Walsh has a few things most master-planned communities do
+            not: a <strong>makerspace</strong> opened in 2019 and refitted in 2022, a village
+            market with a filling station, a co-working space, community gardens, separate
+            small- and large-breed dog parks, a four-acre lagoon and a nine-acre lake with an
+            eighty-foot dock. There is a <strong>Cook Children's paediatric centre on
+            site</strong> and a 24-hour telehealth programme for residents. The design rule the
+            developer set is that every home sits within a five-minute walk of a park.</p>
+            <p>Association dues cover all of it, plus <strong>two-gigabit home
+            internet</strong> and front-garden mowing. Trail mileage is quoted inconsistently
+            across the community's own pages — 24, 26 and 32 miles all appear — because each
+            figure describes a different build-out horizon. At full build-out the plan sets
+            aside 2,300 acres of open space.</p>
+        - heading: Schools
+          html: >-
+            <p>Walsh sits in <strong>Aledo ISD</strong>, and the elementary school is inside the
+            community: <strong>Mary D. and F. Howard Walsh Elementary</strong>, named for the
+            family, roughly 550 pupils. From there it is McAnally Intermediate, the Daniel Ninth
+            Grade Campus, and Aledo High School. The full build-out plan provides for eight
+            elementary schools, two middle schools and one high school — so the campus your
+            children start at may not be the one they finish at.</p>
+    - blocks:
+        - heading: Where the neighbourhoods came from
+          html: >-
+            <p>Knowing the sequence matters, because it maps almost exactly onto the
+            property-tax question further down this page — the earliest neighbourhoods carry
+            the cheaper assessment.</p>
+            <ul>
+            <li><strong>Founders Park</strong>, 2016–17 — the first neighbourhood, 580 homes,
+            and the original model row on Grey Birch Place where most sales offices still
+            sit.</li>
+            <li><strong>Cline Park</strong>, 2019 — the custom-homesite neighbourhood on a ridge
+            with downtown Fort Worth in the distance.</li>
+            <li><strong>Overlook Park and Lake Park</strong>, 2019 — 550 homesites west of the
+            elementary school, adding townhomes and the nine-acre lake.</li>
+            <li><strong>Brook Hollow</strong>, January 2023 — 224 homes, the largest phase since
+            2020.</li>
+            <li><strong>The Village</strong>, April 2023 — 138 homes, deliberately denser, next
+            to the future walkable retail district.</li>
+            <li><strong>Lake Park expansion</strong>, April 2026 — roughly 959 new lots running
+            south and east. This is the phase currently being sold, and the one that brought a
+            new builder in.</li>
+            </ul>
+        - heading: What is coming, and when
+          html: >-
+            <p>An <strong>H-E-B</strong> of nearly 128,000 square feet is under construction at
+            FM 3325 and the I-20 service road, due to complete <strong>December 2026</strong>. A
+            51-acre <strong>University of Texas at Arlington campus</strong> is planned to open
+            in <strong>autumn 2028</strong>. Both are real and permitted rather than
+            aspirational, which is not always true of master-plan renderings.</p>
+            <p>The longer horizon is genuinely long. The current developer is building out about
+            1,700 of the 7,200 acres — roughly 4,000 homes — targeted for completion around
+            2030. Full build-out of the ranch runs to about <strong>2050</strong>, at 15,000
+            single-family homes and 4,000 apartments. If you buy here you are buying into an
+            active construction site for a decade, with everything that implies for both
+            traffic and resale competition.</p>
+          callout:
+            heading: One thing not to worry about
+            html: >-
+              <p>Fort Worth created a <strong>tax increment reinvestment zone</strong> over
+              Walsh Ranch in November 2025, running to 2107, to fund roads, sewer, water and
+              trails. A zone of this kind redirects growth in existing tax revenue toward local
+              infrastructure. It is not a new charge on buyers, and it should not be added to
+              the tax stack.</p>
+
+warranty:
+  provenance:
+    source: >-
+      Each builder's own published limited-warranty document, read directly. Where a builder
+      publishes none, that is recorded as "none" rather than left blank.
+    verified_on: "2026-08-21"
+    stale_when: A builder revises its warranty document or begins publishing one.
+  lede: >-
+    Structural coverage is the term that matters, because it is the only one that outlives the
+    snag list. It does not track price here: the two most expensive production builders in Walsh
+    carry the shortest structural warranty in the community.
+  rows:
+    - builder: Perry Homes
+      mechanical: 2 yr
+      structural: 10 yr
+    - builder: Britton Homes
+      mechanical: 2 yr
+      structural: 10 yr
+    - builder: David Weekley Homes
+      mechanical: 2 yr
+      structural: 10 yr
+    - builder: Drees Homes
+      mechanical: none
+      structural: 10 yr
+    - builder: Highland Homes
+      mechanical: 2 yr
+      structural: 6 yr
+    - builder: GFO Home
+      mechanical: 2 yr
+      structural: 6 yr — plus binding arbitration
+  columns:
+    - heading: Read it as a risk price, not a perk
+      html: >-
+        <p>Perry, Britton and David Weekley all carry <strong>ten-year structural</strong> cover
+        with a two-year mechanical tier underneath. Drees carries the full ten years structurally
+        but has <strong>no mechanical tier at all</strong>, so the systems in the house fall out
+        of cover after year one. Highland and GFO stop at <strong>six years</strong>
+        structurally.</p>
+        <p>The awkward part is who charges what. Highland sells the most expensive production
+        homes in Walsh, base prices from $755,990 to $849,990, on the shortest structural term in
+        the community. That is not a reason to avoid them — it is a reason to ask what the
+        six-year term is worth to you, and whether a third-party structural warranty can be
+        bought alongside it.</p>
+    - heading: One clause worth finding before you sign
+      html: >-
+        <p>GFO's published warranty carries a <strong>mandatory binding-arbitration
+        clause</strong> for all disputes — the only builder at Walsh where that was found in a
+        published document. It also defines a structural claim narrowly: an element must be
+        incapable of carrying load <em>such that the home is unsafe</em>. A cracked slab that is
+        ugly but still bearing may not qualify.</p>
+        <p>Against that, <strong>Highland publishes a Trust Price Guarantee</strong> — no
+        price-escalation clause in the contract, the price you sign is the price you pay. On a
+        nine to twelve month build in a market where builders have been repricing whole sheets,
+        that is a genuine contractual protection and worth asking every other builder to match in
+        writing.</p>
+
+pid:
+  provenance:
+    source: >-
+      City of Fort Worth PID No. 16 Service and Assessment Plan, Improvement Area 4 update
+      adopted 12 May 2026 (Table IV-J and the per-parcel assessment rolls).
+    verified_on: "2026-08-21"
+    stale_when: >-
+      The City adopts a further annual update to the Service and Assessment Plan, or a new
+      improvement area is platted.
+  heading: Walsh has a tax you will not find on Zillow
+  rows:
+    - area: Improvement Area 4 — what you buy today
+      lot: 70 ft
+      principal: 40193
+      annual: 3271
+      total: 98245
+      through: 2056 at 6.60%
+    - area: Improvement Area 4 — what you buy today
+      lot: 60 ft
+      principal: 32472
+      annual: 2642
+      total: 79372
+      through: 2056 at 6.60%
+    - area: Improvement Area 1 — an early-phase resale
+      lot: 70 ft
+      principal: 10515
+      annual: 928
+      total: null
+      through: remaining balance, FY2026 instalment
+  html: >-
+    <p>Walsh Ranch is annexed <strong>City of Fort Worth</strong> land sitting in <strong>Parker
+    County</strong> and served by <strong>Aledo ISD</strong> — a combination that surprises people
+    who assume an Aledo mailing address means the City of Aledo. The ad-valorem stack for tax year
+    2025 comes to <strong>[[ad_valorem]]%</strong>: Aledo ISD 1.1942, City of Fort Worth 0.6700,
+    Parker County and Lateral Road 0.2851, Weatherford College 0.1061, and Parker County Hospital
+    0.0841.</p>
+    <p>On top of that sits <strong>Fort Worth Public Improvement District No. 16</strong> (Walsh
+    Ranch / Quail Valley), created in 2016 and administered by MuniCap. There is no MUD.</p>
+  callout:
+    heading: The single most valuable question you can ask
+    html: >-
+      <p>The PID assessment is <strong>not the same for every lot in Walsh</strong>. It is set at
+      platting, per improvement area, and the area now being sold carries roughly <strong>three
+      and a half times</strong> the annual charge of the earliest phase. This is a property of the
+      lot, not the house, and no listing anywhere discloses it. Ask every builder, in writing,
+      which improvement area the specific lot sits in and what the annual instalment is. Village
+      Homes markets this openly on their own plan pages, which tells you it is real.</p>
+  after_table_html: >-
+    <p>The gap is stark in cash terms. A new 70-foot lot carries about <strong>$3,271 a
+    year</strong> — roughly <strong>$273 a month</strong> — against about <strong>$928</strong> on
+    an early-phase resale of the same lot width. That difference alone, about $195 a month, is
+    worth more than most of the price cuts in this report. It also runs to <strong>2056</strong> at
+    6.60% interest, so a buyer today is signing up for thirty years of it, with a total of
+    <strong>$98,245</strong> on a 70-foot lot. It is prepayable in full at any time.</p>
+    <p>Every carry figure in this report applies the flat annual assessment this tool is configured
+    with, itemised on its own line rather than folded into a rate. Treat the table above as the
+    real number for a specific lot.</p>
+
+carry:
+  provenance:
+    source: >-
+      Walsh residential association dues schedule by lot width, cross-checked against each
+      builder's own published dues figure; Texas tax-year 2025 adopted rates.
+    verified_on: "2026-08-21"
+    stale_when: The association publishes a new dues schedule, or a new tax year is adopted.
+  heading: What the monthly number assumes
+  assumptions_html: >-
+    <ul>
+    <li><strong>[[down_pct]]% down</strong> at <strong>[[mortgage_rate]]%</strong> over
+    [[loan_term_years]] years — change any of these and every carry figure in this report
+    moves.</li>
+    <li><strong>[[default_tax_rate]]%</strong> ad-valorem property tax, the verified stack rather
+    than a county average, plus the improvement-district assessment as a separate line.</li>
+    <li><strong>$[[insurance_annual_per_1000]] per $1,000</strong> of value in insurance, about
+    0.5% a year. North Texas hail makes this volatile; quote it for real.</li>
+    <li><strong>Association dues are the schedule below</strong>, which is keyed to lot width and
+    not to house price. A home's own dues figure is used wherever the builder publishes one.</li>
+    </ul>
+  dues_heading: Dues by lot width
+  dues_lede: >-
+    Dues cover Athletic Club membership, <strong>two-gigabit home internet</strong>, front-yard
+    mowing, and every park, pool and trail. Back gardens are yours.
+  dues:
+    - lot: Garden homes
+      monthly: 187
+    - lot: 35 ft lots
+      monthly: 223
+    - lot: 50 ft lots
+      monthly: 233
+    - lot: 55 ft lots
+      monthly: 238
+    - lot: 60 ft lots
+      monthly: 243
+    - lot: 70 ft lots
+      monthly: 251
+    - lot: Custom lots
+      monthly: 267
+    - lot: Townhomes
+      monthly: "299–386"
+  callout:
+    heading: The trap
+    html: >-
+      <p>Zillow reports a flat 1.46% county-average tax rate on most Walsh homes and omits the PID
+      entirely. On an $800,000 home that understates the monthly carry by roughly
+      <strong>$700</strong>. If you have been budgeting from Zillow's monthly estimate, you have
+      been budgeting the wrong house.</p>
+
+practical:
+  provenance:
+    source: >-
+      TxDOT I-30 corridor programme documents; USDA NRCS soil survey linear-extensibility data
+      for the Walsh sections; Oncor and Tri-County Electric Cooperative certificated-service
+      maps.
+    verified_on: "2026-08-21"
+    stale_when: >-
+      The I-30 interchange reopens, or either utility's certificated boundary is redrawn.
+  heading: Three things that are decided by the lot, not the house
+  items:
+    - heading: The I-30 exit is shut
+      html: >-
+        The eastbound Interstate 30 exit to Walsh Ranch Parkway is <strong>closed until early
+        2027</strong>. TxDOT is rebuilding this corridor under a $541M programme that adds two new
+        interchanges, one of them at Walsh Ranch Parkway. Drive the actual detour at rush hour
+        before you commit — it is not what the sales office route will show you.
+    - heading: Your soil is lot-specific
+      html: >-
+        Walsh spans a very wide range of shrink-swell potential, from <strong>Aledo-Bolar soils at
+        a linear extensibility of about 2.5</strong>, which is excellent, to <strong>Denton clay
+        around 12.0</strong>, which is very high. North Texas foundation problems track this number
+        closely. Ask for the geotechnical report on the specific lot, not the community.
+    - heading: Two electricity providers
+      html: >-
+        Walsh is <strong>dually certificated between Oncor and Tri-County Electric
+        Cooperative</strong>, with the boundary running roughly east–west through the community.
+        Which one serves your address is a function of the lot, and their rates and outage records
+        differ.
+
+method:
+  provenance:
+    source: This tool's own pipeline, and the two feed defects `dataquality.py` documents.
+    verified_on: "2026-08-21"
+    stale_when: >-
+      The sweep's filters change, or a third systematic feed defect is found and written into
+      `dataquality.py`.
+  heading: How this was built, and where it can be wrong
+  columns:
+    - heading: Where the numbers come from
+      html: >-
+        <p>[[n_sweeps]] sweeps of the listing feed's Walsh inventory between [[window_from]] and
+        [[window_to]], deduplicated by property ID, filtered to a two-mile radius of the community
+        and then to Walsh subdivision membership. [[n_newcon]] new-construction rows survived on
+        the final sweep: [[n_plans]] builder plan sheets and [[n_specs]] standing homes.</p>
+        <p>Price cuts are computed by comparing each property's first and last observed asking
+        price across those sweeps, so a cut that happened before [[window_from]] is invisible here.
+        The true figure is therefore a <em>floor</em>, not a total.</p>
+        <p>Every count, median and curve on this page is fitted on the most recent sweep alone.
+        The database remembers every home it has ever seen, which is the right answer to a question
+        about history and the wrong one for a page dated today — a page that counted homes which
+        have since been delisted would be quietly, confidently wrong.</p>
+    - heading: How builders were identified
+      html: >-
+        <p>The feed carries no builder field. Attribution comes first from a researched roster
+        held in this repository as versioned data — 68 plan sheets and 40 standing homes, each
+        entry recording the evidence it rests on and the date it was read — and then, for anything
+        the roster does not cover, from plan-name and exact-footage matching back to the plan
+        sheets. Every home on this page carries the tier its attribution earned, and a home whose
+        evidence points at two builders is shown as unresolved rather than assigned to one.</p>
+        <p>The roster exists as a file because it was lost once. It had to be reconstructed by
+        parsing the data back out of an already-published page, and that it was recoverable at all
+        was luck.</p>
+  caveats:
+    heading: What this report cannot tell you
+    items:
+      - >-
+        <strong>Incentives are invisible to the feed.</strong> They are worth more than the price
+        cuts here — a builder's event can pay tens of thousands in comparable markets — and none
+        of it shows in a listing. Every home is likely cheaper than it looks.
+      - >-
+        <strong>Texas is a non-disclosure state.</strong> Actual sold prices are not published, so
+        nothing here is calibrated against what homes truly closed at, only against asking prices.
+      - >-
+        <strong>Some standing homes still have no builder</strong> because their listings carry no
+        description at all. They are shown as unidentified rather than guessed into a bucket.
+      - >-
+        <strong>Lot premiums are not separable.</strong> A base price and a finished home's price
+        differ by lot, elevation, structural options and finishes all at once. The gap is not a
+        discount or a markup — it is a different product.
+      - >-
+        <strong>Walsh's own builder directory is out of date</strong> in several places: it still
+        lists Toll Brothers as active, and it publishes a stale dues schedule. Trust each builder's
+        own site over the community directory.
+  feed_defects:
+    heading: Two things the feed gets wrong, systematically
+    html: >-
+      <p><strong>It rounds half-baths up.</strong> Checking every plan against the builder's own
+      published specification found <strong>[[n_bath_corrections]] plans</strong> where the feed's
+      bath count was too high — and the error runs one way every time, so it is bias rather than
+      noise. Corrected counts are shown here and marked.</p>
+      <p><strong>Its square footage is the base, not the maximum.</strong> Several plans carry
+      large optional headroom that never appears in a listing: the Drees Grantley runs from 4,121
+      to 4,896 square feet, and the Brynlee IV's optional second storey adds 745 feet and two
+      bedrooms. Comparing a finished home's real size against a plan-sheet figure will therefore
+      overstate how much extra space you are getting.</p>
+
+leverage:
+  provenance:
+    source: >-
+      The builder-behaviour patterns the sweep history makes visible, written up once rather
+      than re-derived each build.
+    verified_on: "2026-08-21"
+    stale_when: The market turns and standing inventory stops aging.
+  columns:
+    - heading: What the movement actually means
+      html: >-
+        <p>A builder's published plan sheet is a price list, not a listing. When a builder moves
+        that list, it is a deliberate corporate decision about a whole product line — very
+        different from one homeowner dropping one price. A whole plan sheet moving by the same
+        figure on the same day is not a negotiation; it is a repricing.</p>
+        <p>The ready-now homes tell the same story from the other end. Every month a finished house
+        stands empty, the builder pays interest on it, which is precisely the pressure that makes a
+        spec home negotiable in a way a to-be-built home never is.</p>
+    - heading: Where the leverage is
+      html: >-
+        <p>Concentrate on the standing inventory that has aged. A finished home past
+        [[stale_spec_days]] days is a builder carrying real money, and it is the one place in new
+        construction where the price is genuinely soft. Ask what has already come off it — the ledger below tells you before you
+        walk in.</p>
+        <p>Then ask for the incentive rather than the discount. Builders protect their published
+        price because it sets the comp for every other home in the section, but they will spend far
+        more freely on a rate buydown, closing costs, or design-centre credit. A cut you can see in
+        this report is a floor for that conversation, not a ceiling.</p>
+      callout:
+        heading: Read this before you compare anything
+        html: >-
+          <p>Plan-sheet prices are <strong>base</strong> prices: no lot premium, no elevation, no
+          structural options, no design-centre selections. Ready-now homes carry all of that inside
+          the number. Comparing the cheapest plan against a finished spec home is not comparing two
+          homes — it is comparing a starting point against a finished product. Everything in this
+          report keeps the two separated for that reason.</p>
+
+builder_profiles:
+  provenance:
+    source: Each builder's own community, series and plan pages, warranty documents, included-features
+      sheets and published incentives, read directly. Sales-office addresses and phone numbers from
+      the builder's own contact page.
+    verified_on: '2026-08-21'
+    stale_when: An incentive window closes (they are dated in the copy), a builder opens or closes
+      a series at Walsh, or a sales office moves.
+  unresolved_note: Two standing homes on Domingo Drive and Green Plateau Drive whose listings carry
+    no description and which match no builder's published inventory. Domingo Drive alone has David
+    Weekley, Drees, Highland and Perry homes interleaved lot by lot, so the street tells you nothing.
+    Both are worth a call precisely because an unlisted spec is often a builder's least-watched inventory.
+  ambiguous_note: Four standing homes whose Zillow listings are brokered by <strong>Perry Homes Realty</strong>
+    and written in Perry's house style, but which match no design in Perry's 8,632-URL sitemap. That
+    combination points to <strong>Britton Homes</strong>, Perry's luxury sister brand, which sells
+    the wider lots out of the same office at 2104 Meadow Holly Lane. It could not be confirmed because
+    brittonhomes.com is currently offline — the www subdomain does not resolve and the apex refuses
+    connections.
+  profiles:
+    David Weekley Homes:
+      note: 'The largest privately-owned homebuilder in the country, and the only builder in Walsh
+        running three separate product lines at three lot widths — Gardens at roughly $392k through
+        Classic at $630k. Their differentiator is measurable rather than decorative: homes are built
+        to Environments For Living Diamond Level with an actual heating-and-cooling energy-usage guarantee,
+        so if the home exceeds the certificate''s stated maximum, the difference is reimbursed. No
+        other builder in Walsh offers that. Quartz counters with integrated sinks come standard in
+        every bath, where GFO uses granite throughout. Their Personal Builder programme gives you
+        up to four scheduled meetings during construction.'
+      highlight: Walsh Gardens reads as a brand-new launch — its plans arrived on the sheet as a
+        block rather than one at a time, its quick move-ins all share one December 2026 completion
+        date, and the plans publish only two elevations each. It is the cheapest way into Walsh from
+        any builder.
+      incentives: Save 7% on your new home (Dallas–Fort Worth, 1 July – 1 October 2026) · Save up
+        to $20,000 (through 1 January 2027) · 50th Anniversary Savings Event financing, all of 2026
+      contact: <b>2024 Grey Birch Place</b>, Fort Worth, TX 76008<br>Model home, Tudor elevation<br><b>(877)
+        933-5539</b><br>Hours not published — call ahead
+      hoa: Cottage $223/mo · Gardens $187/mo · Classic $233/mo
+      links:
+      - label: All Walsh plans
+        kind: gallery
+        url: https://www.davidweekleyhomes.com/neighborhoods/tx/dallas-ft-worth/walsh
+      - label: Walsh Cottage — 35ft lots
+        kind: series
+        url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-cottage
+      - label: Walsh Gardens — garden court
+        kind: series
+        url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-gardens
+      - label: Walsh Classic — 50ft lots
+        kind: series
+        url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-classic
+      - label: Included features (PDF)
+        kind: specs
+        url: https://www.davidweekleyhomes.com/media/CommunityFeatures/5b730587-b8be-4b5d-b4f7-489329deca9c.pdf
+      - label: Community walkthrough
+        kind: 3D tour
+        url: https://my.matterport.com/show/?m=XT1Cd3xAyP8
+    Drees Homes:
+      note: 'Founded in 1928 and still family-owned, now in its fourth generation — the 18th-largest
+        private builder in the country and the oldest company building in Walsh. They are also the
+        most customisable production builder here, with a real Dallas design centre and a two-phase
+        process they brand Custom Construct. Their Walsh product is the top of the production market:
+        60-foot and 70-foot lots running from $729,900 to a $1,449,990 standing home.'
+      highlight: Drees produced the single most striking event this tool has recorded here — every
+        one of their eleven 70-foot plans cut by exactly $85,000 within one nine-day span. Two
+        independent research passes through their site, their ten brochures and their raw page data
+        found no public explanation, and their own data carries no was-and-now record — the new figures
+        are presented as plain base prices. The likeliest lead, which nobody could confirm either
+        way, is whether the homesite is now included in the base price. That is the single best question
+        to walk in with.
+      incentives: 'Smart Start: 2.99% first-year rate on an FHA 3-2-1 buydown through First Equity
+        Mortgage. Contracts 1–31 August 2026, must close by 30 September. Quick move-in homes only
+        — it cannot be used on a plan you build.'
+      contact: <b>2012 Grey Birch Place</b>, Fort Worth, TX 76008<br>Model is the Eastland II<br>Anita
+        Kosco <b>(469) 600-6800</b> call or text<br>Sun 12–6, Mon–Sat 10–6
+      hoa: 60ft lots $243/mo · 70ft lots $251/mo
+      links:
+      - label: Walsh community
+        kind: gallery
+        url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/
+      - label: Walsh Ranch 70ft plans
+        kind: series
+        url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/
+      - label: Walsh Ranch 60ft plans
+        kind: series
+        url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-60/
+      - label: Interactive lot map
+        kind: lots
+        url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/plat?neighborhood=walsh-ranch-70
+      - label: Smart Start incentive
+        kind: offer
+        url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/promotions/smart-start-dallas/
+      - label: Model home
+        kind: visit
+        url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/2012-grey-birch-place/
+    GFO Home:
+      note: 'Founded in 2018 by Glenn Gehan after the sale of Gehan Homes, from a fifth-generation
+        homebuilding family. GFO sells the most square footage per dollar in Walsh by a wide margin
+        — the Kennedy II gives you 1,649 more square feet than the Jefferson for $93,000, a marginal
+        cost of about $56 a foot. Standard specification is genuinely strong for the price: masonry
+        on all four sides of the first floor, 10- and 11-foot ceilings with tray accents, an 8ft 6in
+        mahogany front door, a freestanding tub with separate frameless shower in the primary bath,
+        and irrigation front, side and rear.'
+      highlight: Two things to pin down before you fall in love with the price. GFO runs two series
+        and the plan number tells you which — a leading 5 is the Presidential line, a leading 4 is
+        the step-down Freedom line, so Wilson 4226 and Harding 4232 are not Presidential homes. And
+        their own community page shows Phase III pricing roughly $100,000 above the figures Zillow
+        carries. Ask which phase is actually selling.
+      incentives: None advertised as of August 2026 — which is not the same as none available. Ask.
+      contact: <b>2016 Grey Birch Place</b>, Aledo, TX 76008<br>Mon–Sat 10–6, Sun 12–6<br><b>(469)
+        564-5340</b><br>Community PDF lists Tara Grehl, (469) 947-7315
+      hoa: $243–$251/mo — includes the community fibre internet
+      links:
+      - label: Walsh community & plans
+        kind: gallery
+        url: https://www.gfohome.com/communities/dallas/walsh/
+      - label: Move-in ready inventory
+        kind: inventory
+        url: https://www.gfohome.com/search-all-inventory-in-dallas-fort-worth/walsh-fort-worth/
+      - label: Interactive 3D floor plans
+        kind: 3D tour
+        url: https://www.gfohome.com/interactive-floorplans/
+      - label: Presidential standard features (PDF)
+        kind: specs
+        url: https://www.gfohome.com/wp-content/uploads/2024/07/Walsh-Presidential-Features-7.15.pdf
+      - label: Walsh community info (PDF)
+        kind: specs
+        url: https://www.gfohome.com/wp-content/uploads/2024/07/Walsh-Community-Info-3.pdf
+      warning: 'GFO''s warranty is the weakest at Walsh: one year workmanship, two years systems,
+        and only six years structural, triggering only if an element can no longer carry load such
+        that the home is unsafe. It is also the only builder here whose published warranty carries
+        a mandatory binding-arbitration clause. With nine years of history and roughly fifteen public
+        reviews there is not enough independent signal to underwrite build quality — budget for your
+        own third-party inspection at pre-drywall and at final.'
+    Village Homes:
+      warning: Village Homes announced a Chapter 11 reorganization on 1 October 2025 and has published
+        no update since. The company says it is still building, selling and closing homes, and that
+        warranties remain in force — but no buyer should sign a build contract here without completing
+        the due diligence listed below.
+      note: 'A Fort Worth builder established in 1996, and the first local builder invited into Walsh
+        when it opened in spring 2017. The product is genuinely distinctive: every one of their plans
+        puts the primary suite on the first floor — including the 3,416 sq ft Bennett — and every
+        garage is rear-entry off an alley, which is a community rule here rather than a builder choice.
+        They also publish the best paper documentation in Walsh: a dimensioned handout PDF for every
+        plan with the full structural option sheet, which is the single most useful thing you can
+        put in front of a family. The catch is price. At a median of $259 a square foot they are the
+        most expensive builder in Walsh, and that is before you weigh the bankruptcy.'
+      highlight: The Limoges is 42 square feet larger than the Burgundy but $30,703 cheaper, which
+        almost certainly reflects its model-home status rather than plan economics. It is also the
+        only plan in the community with a true downstairs guest suite as standard.
+      incentives: None advertised as of August 2026.
+      contact: '<b>2136 Village Walk Place</b>, Aledo, TX 76008<br>Sat 12–6, Sun 12:30–6<br>Janet
+        Bishop <b>(817) 233-0761</b><br>Main office 817 737 3377<br>Note: villagehomestx.com no longer
+        resolves'
+      hoa: Not published
+      links:
+      - label: Walsh 50ft homesites
+        kind: gallery
+        url: https://homesofcharacter.com/neighborhood/47/walsh-50-homesites
+      - label: Walsh townhomes
+        kind: series
+        url: https://homesofcharacter.com/neighborhood/76/walsh-townhomes
+      - label: Chapter 11 statement
+        kind: read this
+        url: https://homesofcharacter.com/post/an-important-update-from-village-homes
+      - label: Lot premium map (PDF)
+        kind: lots
+        url: https://homesofcharacter.com/static/neighborhood/11-30-25-available-lots-to-build.pdf
+      - label: Virtual tours
+        kind: 3D tour
+        url: https://homesofcharacter.com/virtual-tours
+      - label: Move-in ready
+        kind: inventory
+        url: https://homesofcharacter.com/category/move-in-ready
+    Highland Homes:
+      note: 'Highland sells the widest single product line in Walsh — twelve plans from 2,792 to 3,979
+        square feet, all on 60-foot lots, and the plan number is a series code setting a minimum lot
+        width rather than a size. Two things make them unusually easy to shop. Every one of the twelve
+        puts the primary bedroom downstairs, and eleven of the twelve come with a three-car tandem
+        garage as standard, which is the most consistent parking in the community. They also publish
+        every structural option per plan — between nine and eighteen depending on the design — so
+        you can price a home properly before you ever walk into a design centre. One caution that
+        price alone would not suggest: Highland''s structural warranty is six years, not the ten that
+        Perry, Britton and David Weekley carry — while Highland sells the most expensive production
+        product in the community.'
+      highlight: Their Trust Price Guarantee means no price-escalation clause in the contract, which
+        in a market where builders have been repricing whole sheets is worth asking about explicitly.
+        Plan 222 is the most customisable in Walsh with eighteen options; Plan 248H is the only plan
+        in the community with a labelled media room.
+      incentives: $20,000 toward closing costs — advertised as limited-time summer savings, August
+        2026 · Trust Price Guarantee
+      contact: <b>2036 Grey Birch Place</b>, Aledo, TX 76008<br>Mon–Sat 10–6, Sun 12–6<br>Todd Boydston<br><b>(972)
+        801-2314</b> office · (817) 821-8852 mobile
+      hoa: Not published. Note Highland's own calculator uses a 2.68% tax rate
+      links:
+      - label: Walsh 60s community
+        kind: gallery
+        url: https://www.highlandhomes.com/dfw/aledo/walsh
+      - label: Interactive floor plans
+        kind: 3D tour
+        url: https://sales.highlandhomes.com/ifp/plan/222
+      - label: Plan 222 — most options
+        kind: plan
+        url: https://www.highlandhomes.com/dfw/aledo/walsh/214-222-D
+      - label: Plan 248H — media room
+        kind: plan
+        url: https://www.highlandhomes.com/dfw/aledo/walsh/214-248H-D
+    Perry Homes:
+      note: 'Founded in 1967 and still family-owned — Kathy Perry Britton owns and chairs it — with
+        more than 70,000 homes built. At Walsh, Perry takes the 50-foot, 55-foot and townhome product
+        while its sister brand Britton takes the wider lots, and the two share one sales office. Perry''s
+        pitch is generous standard specification rather than an options game: 42-inch cabinets, granite
+        with a tile backsplash, full masonry on the first floor, a GE stainless suite, tankless water
+        heater, cedar fence and a smart lock all included. Every home is tested by a third-party HERS
+        rater, and their structural warranty runs ten years — four years longer than Highland''s or
+        GFO''s. Their full catalogue was recovered from their sitemap: 35 designs across the two sections,
+        18 on 50-foot lots from the $540s and 17 on 55-foot lots from the $610s, topping out at 3,994
+        square feet. The design number is simply the square footage — 2695W is 2,695 square feet —
+        which is why a three-digit “Plan 213” could never have been theirs. The primary bedroom is
+        downstairs on every Perry plan, including every two-storey.'
+      highlight: Perry and Britton homes have been cut harder than anything else in Walsh. The deepest
+        single cut we recorded anywhere was $112,000 off 14416 Game Creek Trail. Their Summer Sales
+        Event requires you to present the promotional flyer at your first model visit, so download
+        it before you drive out — walking in without it can forfeit the incentive.
+      incentives: Summer Sales Event 2026 — must close by 30 September, requires Crestmark or Parkstone
+        Mortgage, and the flyer must be presented at your first visit. The dollar figure is gated;
+        the same event pays up to $55,000 in Houston and $50,000 in Austin, so ask for the Dallas
+        certificate.
+      contact: <b>2104 Meadow Holly Lane</b> (55ft) and <b>3953 Linear Drive</b> (50ft)<br>Shared
+        with Britton Homes<br><b>(972) 202-9339</b><br>Mon–Sat 10–7, Sun 12–7 — an hour later than
+        every other Walsh builder
+      hoa: 50ft lots $233/mo · 55ft lots $238/mo
+      links:
+      - label: Walsh community
+        kind: gallery
+        url: https://www.perryhomes.com/new-homes/texas/dallas/walsh
+      - label: Walsh 50ft section
+        kind: series
+        url: https://www.perryhomes.com/new-homes/texas/dallas/walsh/walsh-50
+      - label: Walsh 55ft section
+        kind: series
+        url: https://www.perryhomes.com/new-homes/texas/dallas/walsh/walsh-55
+      - label: Summer Sales Event
+        kind: offer
+        url: https://www.perryhomes.com/promotion/summer-sales-event-2026/dallas
+      - label: Warranty terms
+        kind: specs
+        url: https://www.perryhomes.com/warranty
+    Britton Homes:
+      note: Britton is Perry Homes' luxury sister brand — named for Perry's owner, Kathy Perry Britton
+        — and the two share a single Walsh sales office at 2104 Meadow Holly Lane. That shared office
+        is real, not a directory error. Britton builds the 60-foot and 70-foot lots from the $740s
+        while Perry takes the 50-foot, 55-foot and townhome product. Because both brands write listings
+        in the same clipped house style, one Britton home in this report was initially mistaken for
+        a Perry.
+      highlight: Their 70-foot phase status contradicts itself across their own pages — one says now
+        open, another says a new phase is coming soon, and a third source says sold out. Their website
+        also lists two model addresses that belong to their Celina and Prosper communities, not Walsh.
+      incentives: Advertised on select homes but every figure is gated behind a registration form.
+        Requires a call.
+      contact: <b>2104 Meadow Holly Lane</b>, Fort Worth, TX 76008<br>Shared with Perry Homes<br>Kristin
+        Joyce <b>(817) 946-2005</b><br>60ft (972) 629-3867 · 70ft (469) 357-5115<br>Mon–Sat 10–7,
+        Sun 12–7
+      hoa: 60ft lots $243/mo · 70ft lots $251/mo
+      links:
+      - label: Walsh community
+        kind: gallery
+        url: https://www.brittonhomestexas.com/new-homes/texas/dallas/walsh
+      - label: Walsh 60ft collection
+        kind: series
+        url: https://www.brittonhomestexas.com/new-homes/texas/dallas/walsh/walsh-60
+      - label: Walsh 70ft collection
+        kind: series
+        url: https://www.brittonhomestexas.com/new-homes/texas/dallas/walsh/walsh-70
+      - label: Warranty terms
+        kind: specs
+        url: https://www.brittonhomestexas.com/homeowner-resources/warranty
+    High Street Homes:
+      note: 'An Aledo boutique builder founded in 2012, and the only builder at Walsh with a genuine
+        national editorial footprint — their work has appeared in Architectural Digest, House Beautiful,
+        Domino and Texas Monthly. At Walsh they build Carnegie Row, a run of luxury townhomes on Carnegie
+        Drive facing a greenbelt, a short walk from the Athletic Club and the Village Market. What
+        they include as standard reads like a custom home rather than a townhome: foam insulation,
+        a Bosch appliance suite with a 30-inch dual-fuel range, custom cabinetry, designer lighting,
+        and an LG washer and dryer.'
+      highlight: Two of the homes in this report are theirs, at 13841 and 13833 Carnegie Drive. Both
+        had no builder anywhere in the listing text — they were identified from High Street's own
+        townhome page.
+      incentives: None published.
+      contact: '<b>13801 Walsh Avenue</b>, Fort Worth, TX 76008<br>Brett Phillips <b>(817) 727-7252</b>
+        call or text<br>Corporate: 401 N FM 1187 Ste 200, Aledo — by appointment<br>No hours published'
+      hoa: Townhomes $299–$386/mo
+      links:
+      - label: Carnegie Row townhomes
+        kind: gallery
+        url: https://highstreethomes.com/townhomes
+      - label: Available properties
+        kind: inventory
+        url: https://highstreethomes.com/available-properties
+      - label: Portfolio
+        kind: work
+        url: https://highstreethomes.com/our-work
+off_feed_builders:
+  provenance:
+    source: Each builder's own site, plus the Walsh community builder directory where it is the only
+      source — noted as stale in the copy where it is.
+    verified_on: '2026-08-21'
+    stale_when: One of these builders starts publishing plan sheets to the feed.
+  heading: Also selling here, but not in the listing feed
+  lede: These builders do not publish plan sheets to the feed this report is built from, so they are
+    invisible in the tables above. Two of them own homes in the ready-now list.
+  builders:
+  - name: Britton Homes
+    what: Perry Homes' luxury sister brand, sharing Perry's Walsh sales office. Builds the 60ft and
+      70ft lots from the $740s. Its listings read exactly like Perry's, which is how one of its standing
+      homes was initially mistaken for Perry here.
+    url: https://www.brittonhomestexas.com/new-homes/texas/dallas/walsh
+    note: The 70ft phase status is contradictory across its own pages — call (469) 357-5115.
+  - name: High Street Homes
+    what: An Aledo boutique builder, founded 2012, whose work has run in Architectural Digest and
+      Texas Monthly. At Walsh they build Carnegie Row — luxury townhomes on Carnegie Drive with Bosch
+      dual-fuel ranges, foam insulation and custom cabinetry included. Two of the homes in this report
+      are theirs.
+    url: https://highstreethomes.com/townhomes
+    note: Publishes no prices, plans or warranty terms. Everything comes from a conversation.
+  - name: Toll Brothers
+    what: Sold out. Their own community page carries the banner. Any Toll home you see at Walsh today
+      is a resale, not new construction.
+    url: https://www.tollbrothers.com/luxury-homes-for-sale/Texas/Toll-Brothers-at-Walsh
+    note: Walsh's own builder directory still lists them as active — it is stale.
+  - name: Hark Homes
+    what: The newest arrival, added to the Walsh lineup around April 2026 for the 959-lot expansion.
+      Two homes under construction on Highline Drive, both delivering January 2027. Mid $600s to $1M+
+      on 50ft lots.
+    url: https://www.harktx.com/availablehomes
+    note: No completed home in Walsh yet and no published warranty. Tour their Parks of Aledo work
+      first.
+custom_builders:
+  provenance:
+    source: Each custom builder's own site; Walsh's Cline Park custom-lot programme.
+    verified_on: '2026-08-21'
+    stale_when: The Cline Park homesite count changes or a builder leaves the panel.
+  heading: 'Bring your own architect: Cline Park'
+  lede: Walsh runs a real custom-lot programme on a ridge overlooking the village with downtown Fort
+    Worth in the distance — forty homesites between 13,000 and 24,000 square feet. These are the builders
+    on the panel.
+  builders:
+  - name: John Askew Custom Homes
+    url: https://www.johnaskewhomes.com/
+    detail: 70ft lots · 3,200–4,900 sq ft · $650k–$1M+
+  - name: Glendarroch Homes
+    url: https://glendarrochhomes.com/
+    detail: The only custom builder whose own site shows a Walsh (Cline Park) project
+  - name: MK Homes
+    url: https://mkhomestx.com/
+    detail: 60ft and 70ft · 3,000–5,000 sq ft · $550k+ · built a rare Walsh basement home
+  - name: HGC Residential
+    url: https://hgcdevelopment.com/
+    detail: 50ft and 60ft · 3,100+ sq ft · $450k+ — the cheapest custom entry
+  - name: Parkhill Homes
+    url: https://www.parkhillhomes.com/
+    detail: Founded specifically for Walsh in 2017 · 70ft · 3,300–3,700 sq ft · $500k–$1M+
+plan_details:
+  provenance:
+    source: 'Each plan''s own page on the builder''s site: storeys, garage, where the primary suite
+      sits, the rooms worth knowing about, published elevations, and the link to the plan, its dimensioned
+      PDF and its 3D tour where those exist.'
+    verified_on: '2026-08-21'
+    stale_when: A builder revises a plan or moves its page. A dead `url` is the tell, and `scripts/verify_page.py`
+      does not check outbound links — a person does.
+  plans:
+    BENSON:
+      stories: '2'
+      garage: 2-car rear-load, optional 3rd
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-60/benson-floorplan/
+      primary: Down
+      warn: The fireplace is an option here, not standard
+    BRENNER:
+      stories: '1'
+      garage: 3-car
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-60/brenner-floorplan/
+      primary: Down
+      rooms: 262 sq ft of headroom
+      warn: The powder room is an option here, not standard
+    BRIARGATE:
+      stories: '2'
+      garage: 3-car
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/briargate-floorplan/
+      primary: Down
+      rooms: Media room standard; five to six bedrooms
+      tour: https://my.matterport.com/show/?m=VSe7RsZSr93
+    BRINKLEY:
+      stories: '2'
+      garage: 3-car, side-entry standard
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/brinkley-floorplan/
+      primary: Down
+      rooms: Standard main-level guest suite
+      warn: Drees's own page misspells this plan as Brinkely
+    BROOKDALE II:
+      stories: '2'
+      garage: 3-car
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/brookdale-ii-floorplan/
+      primary: Down
+      rooms: Media room standard; optional independent living suite
+      tour: https://my.matterport.com/show/?m=MbsrFzLDJba
+    BRYNLEE IV:
+      stories: 1, optional 2nd
+      garage: 2-car rear-entry, optional 3rd
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-60/brynlee-iv-floorplan/
+      primary: Down
+      star: The optional second storey adds 745 sq ft and takes it from three bedrooms to five — the
+        largest single option in the Drees lineup
+    BURKHART:
+      stories: '2'
+      garage: 3-car oversized tandem
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-60/burkhart-floorplan/
+      primary: Likely down
+      warn: Primary bedroom level not published — confirm
+      star: Offers an optional SECOND home office — genuinely rare, and the standout if two people
+        work from home
+    Bartley:
+      stories: '2'
+      garage: 2-car
+      primary: Up
+      rooms: Upstairs retreat, covered porches, walk-in closets in both secondary bedrooms
+      elev: A, B
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-gardens/bartley
+    Camborne:
+      stories: '2'
+      garage: 2-car
+      primary: Up
+      rooms: Upstairs retreat plus study, dual walk-in closets
+      elev: A, G
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-cottage/camborne
+      tour: https://my.matterport.com/show/?m=oNDUtoRuUMn
+    Chadwell:
+      stories: '2'
+      garage: 2-car
+      primary: Up
+      rooms: Largest Gardens plan; upstairs retreat, two junior bedrooms with walk-in closets
+      elev: A, B
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-gardens/chadwell
+      tour: https://listings.fullpackagemedia.com/sites/dkqbwgj/unbranded
+    Charleston:
+      stories: '2'
+      garage: Garage plus a dedicated golf-cart bay
+      primary: Down
+      rooms: New plan for 2026
+      url: https://homesofcharacter.com/plan/186/charleston
+      pdf: https://homesofcharacter.com/static/plan/charleston-marketing-plan.pdf
+      star: The only plan in Walsh with a dedicated golf-cart bay
+    Daisy:
+      stories: '1'
+      garage: 2-car
+      primary: Down
+      rooms: Guest suite, study, elevated-ceiling family room
+      elev: B, C, D, E, G
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-classic/daisy
+      tour: https://vimeo.com/1143491349
+    EASTLAND II:
+      stories: 1, optional 2nd
+      garage: 3-car plus optional tandem
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/eastland-ii-floorplan/
+      primary: Down
+      rooms: Media room standard, optional independent living suite, and 585 sq ft of headroom over
+        base
+      tour: https://my.matterport.com/show/?m=zjSfJYxDsEr
+    ELLIOT:
+      stories: 1, optional 2nd
+      garage: 3-car including tandem
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/elliot-floorplan/
+      primary: Down
+      warn: Universal Design here means accessibility and ageing in place, not open-plan living
+      star: The only Drees plan at Walsh flagged Universal Design — step-minimised circulation with
+        the owner's suite, kitchen and laundry all reachable on one level
+    GRANBURY:
+      stories: 1, optional 2nd
+      garage: 2 bays plus tandem
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/granbury-floorplan/
+      primary: Down
+      rooms: Optional independent living suite
+    GRANTLEY:
+      stories: '2'
+      garage: '3-car: 2 plus a carriage bay'
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/grantley-floorplan/
+      primary: Down
+      star: The strongest multi-generation plan in Walsh — a standard main-level guest suite plus
+        a carriage bay that converts to a living suite with kitchenette. 775 sq ft of headroom, the
+        most of any Drees plan
+    Harding 4232:
+      stories: '2'
+      garage: 2-car
+      primary: Not published
+      rooms: Two-storey vaulted family room, flex room, game room, covered patio
+      code: Harding 4232
+      url: https://www.gfohome.com/floorplan/harding-4232-floor-plan-walsh-ranch/
+      tour: https://lfp.houston3drenderings.com/GFOHome-The-Harding-4232-A-D
+      elev: A, D
+      warn: Freedom series, not Presidential
+    Herald:
+      stories: '2'
+      garage: 2-car
+      primary: Up
+      rooms: Presentation-island kitchen, covered porch. No study, game or media room
+      elev: A, B
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-gardens/herald
+      star: The cheapest way into Walsh from any builder
+    Huntmere:
+      stories: '2'
+      garage: 2-car
+      primary: Down
+      rooms: Upstairs bonus room
+      elev: A, B, C
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-cottage/huntmere
+      star: The only Cottage plan with the primary suite downstairs — and the same price as Ridgepoint
+        for 400 more feet and an extra bedroom
+    Jasmine:
+      stories: '1'
+      garage: 2-car
+      primary: Down
+      rooms: Study, covered porch, island kitchen
+      elev: A, B, C
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-classic/jasmine
+      warn: Builder pages disagree on the garage — community page says 3-car, plan page says 2-car
+    LORENZO III:
+      stories: 1, optional 2nd
+      garage: '3-car: 2 plus a carriage bay'
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/lorenzo-iii-floorplan/
+      primary: Down
+      rooms: Optional full second level adds up to 904 sq ft
+    Lankford:
+      stories: '2'
+      garage: 3-car
+      primary: Up
+      rooms: Downstairs study, upstairs retreat as a movie theatre, sunroom
+      elev: A, B, D
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-classic/lankford
+      tour: https://149.photos/tours/david-weekley-dallas/a013a225-a809-11ee-a3c0-42010a8002ed
+    Laurinda:
+      stories: 2–3
+      garage: 2-car
+      primary: Up
+      rooms: Downstairs study, covered patio
+      elev: A, C
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-cottage/laurinda
+      star: The only three-storey option in Walsh; the third floor adds up to 535 sq ft that Zillow
+        does not show
+      tour: https://listings.fullpackagemedia.com/sites/yppskega/unbranded
+    Lavender:
+      stories: '2'
+      garage: 2–3 car
+      primary: Up
+      rooms: Front study, first-floor guest room, optional media room, upstairs lounge
+      elev: B, D, E
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-classic/lavender
+    MARANDA:
+      stories: '1'
+      garage: 3-car including tandem
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-60/maranda-floorplan/
+      primary: Down
+      rooms: The smallest Drees plan at Walsh
+    Magnolia:
+      stories: '1'
+      garage: 3-car
+      primary: Down
+      rooms: Study, bonus room, TV room, covered porch
+      elev: E, G
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-classic/magnolia
+      tour: https://vimeo.com/1105562632
+    Marietta:
+      stories: '2'
+      garage: 2-car
+      primary: Up
+      rooms: Upstairs FlexSpace retreat, corner pantry, presentation island
+      elev: C, D
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-cottage/marietta
+    Meriweather:
+      stories: '2'
+      garage: 2-car
+      primary: Up
+      rooms: Downstairs study convertible to a movie room, covered patio
+      elev: A, B, C
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-cottage/meriweather
+    Morley:
+      stories: '2'
+      garage: 2-car
+      primary: Up
+      rooms: Dedicated front study, covered back porch
+      elev: A, B
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-gardens/morley
+      star: The only Gardens plan with a dedicated study
+      tour: https://listings.fullpackagemedia.com/sites/dpaxjov/unbranded
+    OAKLEY III:
+      stories: '2'
+      garage: Not published
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/oakley-iii-floorplan/
+      primary: Down
+      rooms: Media room standard; the largest Drees plan at Walsh
+      tour: https://my.matterport.com/show/?m=f41UkGv8D26
+      warn: No brochure published for this plan
+    OVERLOOK:
+      stories: '1'
+      garage: 3-car
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/overlook-floorplan/
+      primary: Down
+      rooms: The only single-storey here with the game room on the main level
+    PRESLEY III:
+      stories: '1'
+      garage: 3-car
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-70/presley-iii-floorplan/
+      primary: Down
+      rooms: Standard main-level guest suite
+      tour: https://my.matterport.com/show/?m=mhFzHVvvq2Z
+    Plan 213:
+      stories: 1 (optional 2nd-floor game room)
+      garage: 3-car tandem
+      primary: Down
+      rooms: All four bedrooms down. Study, entertainment room, family, dining, outdoor living. 17
+        structural options
+      elev: D marketed at Walsh
+      url: https://www.highlandhomes.com/dfw/aledo/walsh/214-213-D
+      tour: https://sales.highlandhomes.com/ifp/plan/213
+    Plan 214:
+      stories: 1 (optional 2nd-floor game room)
+      garage: 3-car tandem
+      primary: Down, front-left
+      rooms: Study and entertainment room. 16 options
+      elev: D
+      star: Unusual front-left primary placement — worth seeing in person if you want distance from
+        the living areas
+      url: https://www.highlandhomes.com/dfw/aledo/walsh/214-214-D
+      tour: https://sales.highlandhomes.com/ifp/plan/214
+    Plan 215:
+      stories: 1 only
+      garage: 3-car tandem
+      primary: Down
+      rooms: Separate breakfast and dining, study, entertainment room. 13 options
+      elev: D, E
+      star: The only Highland plan here with no second-floor option at all
+      url: https://www.highlandhomes.com/dfw/aledo/walsh/214-215-D
+      tour: https://sales.highlandhomes.com/ifp/plan/215
+    Plan 216:
+      stories: '1'
+      garage: 3-car tandem
+      primary: Down
+      rooms: Keeping room off the kitchen, study, entertainment room. 16 options
+      elev: D, Farmhouse, Modern Craftsman
+      url: https://www.highlandhomes.com/dfw/aledo/walsh/214-216-D
+      tour: https://sales.highlandhomes.com/ifp/plan/216
+    Plan 217:
+      stories: '1'
+      garage: 3-car tandem
+      primary: Down
+      rooms: Study, entertainment room. 10 options — the least customisable of the twelve
+      elev: D
+      warn: Highland's data field says 3-car but the published base floor plan renders a 2-car garage
+        plus garage storage. Ask them to resolve this in writing
+      url: https://www.highlandhomes.com/dfw/aledo/walsh/214-217-D
+      tour: https://sales.highlandhomes.com/ifp/plan/217
+    Plan 218:
+      stories: '1'
+      garage: 3-car tandem, optional 4th bay
+      primary: Down
+      rooms: Bedroom 4 has its own bath — the best single-storey guest suite in the community. 9 options
+      elev: D, Farmhouse, Modern Craftsman
+      star: Only plan offering a fourth garage bay
+      url: https://www.highlandhomes.com/dfw/aledo/walsh/214-218-D
+      tour: https://sales.highlandhomes.com/ifp/plan/218
+    Plan 220:
+      stories: '2'
+      garage: 3-car tandem
+      primary: Down
+      rooms: Primary and bedroom 2 down; bedrooms 3 and 4 up with game room and lifestyle room. Curved
+        stair, open to below. 13 options
+      elev: D
+      url: https://www.highlandhomes.com/dfw/aledo/walsh/214-220-D
+      tour: https://sales.highlandhomes.com/ifp/plan/220
+    Plan 221:
+      stories: '2'
+      garage: 3-car tandem
+      primary: Down
+      rooms: Primary and bedroom 2 down; game and lifestyle rooms up. 12 options
+      elev: D, E
+      warn: Sold in only three communities nationally — a low-volume design, so resale comparables
+        will be thin
+      url: https://www.highlandhomes.com/dfw/aledo/walsh/214-221-D
+      tour: https://sales.highlandhomes.com/ifp/plan/221
+    Plan 222:
+      stories: '2'
+      garage: 3-car tandem
+      primary: Down
+      rooms: Two dining spaces; game room, lifestyle room, unfinished storage and window seat upstairs
+      elev: D, Farmhouse, Modern Craftsman
+      star: The most customisable plan in Walsh — eighteen structural options
+      url: https://www.highlandhomes.com/dfw/aledo/walsh/214-222-D
+      tour: https://sales.highlandhomes.com/ifp/plan/222
+    Plan 223:
+      stories: '2'
+      garage: 3-car tandem
+      primary: Down
+      rooms: Breakfast plus dining room; game and lifestyle rooms up; curved stair. 13 options
+      elev: D
+      url: https://www.highlandhomes.com/dfw/aledo/walsh/214-223-D
+      tour: https://sales.highlandhomes.com/ifp/plan/223
+    Plan 224:
+      stories: '2'
+      garage: 3-car tandem
+      primary: Down
+      rooms: A study plus both a dining room and a formal dining room; game and lifestyle rooms up;
+        configurable to six bedrooms and five baths. 15 options
+      elev: D, Farmhouse, Modern Craftsman
+      star: The largest Highland plan in Walsh
+      url: https://www.highlandhomes.com/dfw/aledo/walsh/214-224-D
+      tour: https://sales.highlandhomes.com/ifp/plan/224
+    Plan 248H:
+      stories: '2'
+      garage: 3-car
+      primary: Down
+      rooms: Study off the entry; optional butler's pantry, enhanced kitchen, dry bar, computer desk
+        and planning centre. 11 options
+      elev: D
+      star: The only plan in Walsh with a labelled media room
+      url: https://www.highlandhomes.com/dfw/aledo/walsh/214-248H-D
+      tour: https://sales.highlandhomes.com/ifp/plan/248H
+    Primrose:
+      stories: '2'
+      garage: 4-car
+      primary: Up
+      rooms: Sunlit study, upstairs retreat, two junior and two guest bedrooms
+      elev: A, B
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-classic/primrose
+      star: The only four-car garage in Walsh
+      tour: https://vimeo.com/1086949675
+    Raddington:
+      stories: '1'
+      garage: 3-car
+      primary: Down
+      rooms: Guest suite, open study
+      elev: B, C, D
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-classic/raddington
+      tour: https://my.matterport.com/show/?m=oQh6EgwL2Qj
+    Ridgepoint:
+      stories: '2'
+      garage: 3-car
+      primary: Up
+      rooms: Study plus upstairs retreat plus bonus room — the most flex space in the Cottage series
+      elev: A, D, E
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-cottage/ridgepoint
+      star: Only 3-car garage in the Cottage series
+    Rose:
+      stories: '1'
+      garage: 2-car
+      primary: Down
+      rooms: Sunlit study near the entry, guest room, covered porch
+      elev: B, C, F, G
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-classic/rose
+      tour: https://vimeo.com/1105562716
+    SYDNEY:
+      stories: '2'
+      garage: 3-car
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-60/sydney-floorplan/
+      rooms: 533 sq ft of headroom
+      warn: Primary bedroom level is contradictory across sources — confirm with the sales office
+    The Bennett:
+      stories: '2'
+      garage: 2-car rear-entry
+      primary: Down
+      rooms: 'Options: guest suite 12ft by 17ft 8in with a fifth bath, fourth bath, butler''s pantry
+        — the guest suite, fourth bath and butler''s pantry are mutually exclusive'
+      elev: A, B, C, D
+      url: https://homesofcharacter.com/plan/179/the-bennett
+      pdf: https://homesofcharacter.com/static/plan/bennett-floorplan-03-17-24.pdf
+      warn: The handout cover says 3,416 sq ft but the totals box in the same document sums to 3,320
+    The Bradley:
+      stories: '1'
+      garage: 2-car rear-entry
+      primary: Down
+      rooms: 'Options: fireplace, spa primary bath, vaulted family room, rear patio'
+      code: C.40R.2035
+      elev: A, B, C
+      url: https://homesofcharacter.com/plan/127/the-bradley
+      pdf: https://homesofcharacter.com/static/plan/c-40r-2035-bradley-handout-8-23-24.pdf
+      warn: The only plan under 2,100 sq ft here without a study or flex room, and the highest price
+        per foot in Walsh at $293
+    The Burgundy:
+      stories: '2'
+      garage: 2-car rear-entry, 3-car optional
+      primary: Down
+      rooms: 'Options: 3-car garage, third bath, study, fourth bedroom'
+      code: C.40R.2793
+      elev: A, B, C, D
+      url: https://homesofcharacter.com/plan/67/the-burgundy
+      pdf: https://homesofcharacter.com/static/plan/c-40r-2793-burgundy-handout-04-05-24.pdf
+      warn: Builder web page says 3-car standard, the handout says 2-car standard. Trust the handout
+    The Conway:
+      stories: '2'
+      garage: 3-car rear-entry
+      primary: Down
+      rooms: Texas basement option adding 498 sq ft, media room option adding 502 sq ft, study, expanded
+        utility. Game room at 22ft 9in by 23ft is the largest room in Walsh
+      code: C.40R.3123
+      elev: A, C, D, E
+      url: https://homesofcharacter.com/plan/72/the-conway
+      pdf: https://homesofcharacter.com/static/plan/c-40r-3123-conway-handout-12-10-23.pdf
+      tour: https://my.matterport.com/show/?m=gVPEkd2jjgY
+      star: The only Texas basement in the community, and the best storage and garage package
+    The Darby:
+      stories: '2'
+      garage: 2-car rear-entry
+      primary: Down
+      rooms: 'Options: luxury primary bath, pocket office, boxed window seat, fireplace, fourth bath,
+        enlarged game room with bath'
+      code: C.30R.2333
+      elev: Modern Farmhouse, Brick
+      url: https://homesofcharacter.com/plan/174/the-darby
+      pdf: https://homesofcharacter.com/static/plan/darby-marketing-floorplan-11-12-24.pdf
+      star: The cheapest four-bedroom in the Village line by about $47,000
+    The Emery:
+      stories: '2'
+      garage: 2-car rear-entry
+      primary: Down
+      rooms: 'Full option sheet: second bath shower, third bath, rear patio, extended rear patio,
+        fireplace, luxury primary bath, fourth bedroom, study'
+      code: C.30R.2132
+      elev: Transitional, Modern Farmhouse, Brick
+      url: https://homesofcharacter.com/plan/173/the-emery
+      pdf: https://homesofcharacter.com/static/plan/c-40r-2022-emery-handout-09-07-24.pdf
+      tour: https://my.matterport.com/show/?m=AB4zyyUVUVj
+    The Harrison:
+      stories: '2'
+      garage: 2-car
+      primary: Main
+      rooms: Private study, game room, two-storey vaulted family room
+      code: Harrison 5234
+      url: https://www.gfohome.com/floorplan/harrison-5234-8/
+      tour: https://lfp.houston3drenderings.com/GFOHome-Harrison-combination-A-B-C-D-H-J
+      elev: A, B, C, D, H, J
+    The Jefferson:
+      stories: '1'
+      garage: 2-car
+      primary: Main
+      rooms: Flex or dining room, covered patio
+      code: Jefferson 5126
+      url: https://www.gfohome.com/floorplan/jefferson-5126-6/
+      tour: https://lfp.houston3drenderings.com/GFOHome-Jefferson-B-J-K
+      elev: B, J, K
+    The Johnson:
+      stories: '1'
+      garage: 3-car
+      primary: Main
+      rooms: Family, dining and breakfast, covered patio, high ceilings
+      code: Johnson 5128
+      url: https://www.gfohome.com/floorplan/johnson-5128-6/
+      tour: https://lfp.houston3drenderings.com/GFOHome-Johnson-B-D
+      elev: B, D
+      star: The only GFO plan in Walsh with a 3-car garage
+    The Kendrick:
+      stories: '1'
+      garage: 2-car rear-entry
+      primary: Down
+      rooms: 'Deep 22ft front porch. Options: fireplace, spa primary bath, rear patio, garage storage'
+      code: C.40R.2022
+      elev: D, E, G
+      url: https://homesofcharacter.com/plan/130/the-kendrick
+      pdf: https://homesofcharacter.com/static/plan/c-40r-2022-kendrick-handout-2-12-24.pdf
+    The Kennedy II:
+      stories: '2'
+      garage: 2-car
+      primary: Main
+      rooms: Study and flex room, game room, loft, two-storey vaulted family room
+      code: Kennedy II 5242
+      url: https://www.gfohome.com/floorplan/kennedy-ii-5242-9/
+      tour: https://lfp.houston3drenderings.com/GFOHome-Kennedy-II-A-B-C
+      elev: A, B, C
+      star: The cheapest square footage in Walsh at $150 a foot — but still only a 2-car garage
+    The Lafayette:
+      stories: '1'
+      garage: 2-car rear-entry
+      primary: Down
+      rooms: Courtyard plan with optional private courtyard; study standard; the largest primary closet
+        in the line at 14ft by 7ft
+      code: C.40R.2210
+      elev: B, C, D
+      url: https://homesofcharacter.com/plan/129/the-lafayette
+      pdf: https://homesofcharacter.com/static/plan/c-40r-2210-lafayette-handout-1-22-24.pdf
+    The Limoges - Model Home:
+      stories: '2'
+      garage: 2-car rear-entry
+      primary: Down
+      rooms: 'Standard downstairs guest suite, 14ft by 14ft with its own bath. Options: media room,
+        fifth bedroom with fourth bath, office. Largest family room and front porch in the line'
+      code: C.40R.2834
+      elev: A, B, C, D, E
+      url: https://homesofcharacter.com/plan/71/the-limoges--model-home-plan
+      pdf: https://homesofcharacter.com/static/plan/c-40r-2834-limoges-handout-08-31-24.pdf
+      star: The only plan in Walsh with a true downstairs guest suite as standard — and it is 42 sq
+        ft larger than the Burgundy yet $30,703 cheaper
+      warn: Listed as the model home, but the builder's open-homes page lists only the townhome model.
+        Confirm before driving out
+    The Lincoln:
+      stories: '1'
+      garage: 2-car
+      primary: Main
+      rooms: Cathedral-ceiling family room, flex or dining, covered patio
+      code: Lincoln 5130
+      url: https://www.gfohome.com/floorplan/lincoln-5130-6/
+      tour: https://lfp.houston3drenderings.com/GFOHome-Lincoln-5130-A-B-C-J-K
+      elev: A, B, C, J, K
+      star: Best value in the Presidential line at $187 a foot
+    The Roosevelt II:
+      stories: '2'
+      garage: 2-car
+      primary: Main
+      rooms: Private study, game room, covered patio
+      code: Roosevelt II 5237
+      url: https://www.gfohome.com/floorplan/roosevelt-ii-5237-10/
+      tour: https://lfp.houston3drenderings.com/GFOHome-Roosevelt-II-A-B-J-K
+      elev: A, B, J, K
+      warn: Zillow under-states the baths on this one — the builder publishes 4, Zillow shows 3
+    The Wilson:
+      stories: '2'
+      garage: 2-car
+      primary: Not published
+      rooms: Two-storey vaulted family room, flex room, game room, covered patio
+      code: Wilson 4226
+      url: https://www.gfohome.com/floorplan/wilson-4226-floor-plan-walsh-ranch/
+      tour: https://lfp.houston3drenderings.com/GFOHome-The-Wilson-4226-B
+      elev: B
+      warn: Freedom series, not Presidential — the leading 4 in the plan number is the step-down line
+    VIOLET:
+      stories: '2'
+      garage: 3-car
+      url: https://www.dreeshomes.com/new-homes-dallas-ft-worth/ft-worth-tx/walsh/walsh-ranch-60/violet-floorplan/
+      rooms: The best price per foot in the Drees lineup
+      warn: Primary bedroom level is contradictory across sources — confirm with the sales office.
+        The quoted price is against the top of its size range, so it may already reflect options
+    Wildflower:
+      stories: '2'
+      garage: 2-car
+      primary: Up
+      rooms: Downstairs study, epicurean kitchen, front and back covered porches
+      elev: A, D
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-cottage/wildflower
+    Zinnia:
+      stories: '2'
+      garage: 3-car
+      primary: Down
+      rooms: Study retreat with covered porch
+      elev: A, B, G
+      url: https://www.davidweekleyhomes.com/new-homes/tx/dallas-ft-worth/fort-worth/walsh-classic/zinnia
+      star: The only two-storey Weekley plan in Walsh with the primary suite on the main floor, plus
+        a front guest bedroom also on the main
+      tour: https://vimeo.com/1059526159

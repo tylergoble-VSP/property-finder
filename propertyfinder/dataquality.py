@@ -17,7 +17,10 @@ research, after the bad number had already skewed a model and reached a page:
     two slots on a leaderboard.
   - **There is no builder field.** The single most useful fact about a new-construction
     market is absent from the feed entirely, and the only honest way to recover it is to
-    say how it was recovered.
+    say how it was recovered. The researched half of that recovery lives in
+    `data/builder-attribution.yaml` — 68 Walsh plan sheets and 40 standing spec homes, each
+    carrying the basis it rests on — because a roster that lives only in a script's memory
+    gets lost, and this one already was, once.
 
 Three rules hold this module together.
 
@@ -34,9 +37,10 @@ verified*. If the feed no longer says that, the correction is stale and is not a
 a correction that no longer describes reality is one to re-verify, not to trust.
 
 **A guess is never dressed as a fact.** Builder attribution returns a confidence tier —
-CONFIRMED when the builder is named in the listing's own text, INFERRED when the home
-matches a known plan exactly, UNRESOLVED when neither, including when two builders match
-and the evidence therefore proves nothing.
+RESEARCHED when a person read the evidence and recorded where, CONFIRMED when the builder
+is named in the listing's own text, INFERRED when the home matches a known plan exactly,
+UNRESOLVED when none of those, including when two builders match and the evidence therefore
+proves nothing.
 """
 from __future__ import annotations
 
@@ -62,8 +66,26 @@ SUSPECT_HALF_BATH_ROUNDUP = "suspect_half_bath_roundup"
 SQFT_IS_BASE_OF_RANGE = "sqft_is_base_of_range"
 DUPLICATE_LISTING = "duplicate_listing"
 
-# Builder attribution tiers, strongest first.
-CONFIRMED, INFERRED, UNRESOLVED = "CONFIRMED", "INFERRED", "UNRESOLVED"
+# Builder attribution tiers, strongest first. RESEARCHED sits above CONFIRMED because a
+# person read the evidence and wrote down where they read it, in a file git keeps; CONFIRMED
+# is the same claim made by a scraped string this tool happened to see once. Both are better
+# than INFERRED, which is a match rather than a statement, and all three are better than
+# UNRESOLVED, which is this module refusing to guess.
+RESEARCHED, CONFIRMED, INFERRED, UNRESOLVED = (
+    "RESEARCHED",
+    "CONFIRMED",
+    "INFERRED",
+    "UNRESOLVED",
+)
+
+# The `basis` values `builder-attribution.yaml` records, and the tier each one earns. A
+# researched entry does not automatically outrank a heuristic: an entry whose evidence was
+# itself a plan-name match resolves as INFERRED, because that is what it is. See that
+# file's own header.
+_BASIS_TIERS = {
+    "description": RESEARCHED,
+    "plan-match": INFERRED,
+}
 
 # How alike two street names must read before two rows sharing a price and a footage are
 # called one home. "crested ridge" against "crested rdg" scores about 0.92; two genuinely
@@ -141,9 +163,51 @@ def bath_corrections() -> Mapping[str, dict]:
 
 
 @lru_cache(maxsize=None)
+def builder_attributions() -> Mapping[str, dict]:
+    """The researched builder roster, keyed by plan address or by zpid.
+
+    One flat mapping over both of the file's sections, the same shape `bath_corrections`
+    has, because the lookup asks the same question in the same two ways: does anything
+    know about this exact home, and failing that, does anything know about its plan sheet.
+    The two key spaces cannot collide — a zpid is digits and a plan address is not.
+    """
+    merged: dict[str, dict] = {}
+    for section in ("plans", "specs"):
+        merged.update(_load("builder-attribution.yaml", section))
+    return MappingProxyType(merged)
+
+
+@lru_cache(maxsize=None)
 def plan_sqft_ranges() -> Mapping[str, dict]:
     """What a plan's footage runs to, keyed by plan address. See the file's own header."""
     return _load("plan-sqft-ranges.yaml", "ranges")
+
+
+@lru_cache(maxsize=None)
+def curated(filename: str) -> Mapping[str, dict]:
+    """A whole curated-research file, read-only, keyed by its own top-level blocks.
+
+    Unlike the correction files this module's other loaders read, a curated file is not a
+    lookup table — it is hand-written prose, tables and profiles that a page renders more or
+    less as they stand. So it comes back whole, and the payload builder decides what to do
+    with it. What this loader enforces is the one rule that makes such a file reviewable:
+    every block carries `provenance`, with a source, the date it was read, and what would
+    make it stale. A block without that is tribal knowledge in a YAML costume.
+    """
+    path = DATA_DIR / filename
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} is missing — the curated blocks of a report are versioned data, not "
+            "something a build can regenerate"
+        )
+    raw = yaml.safe_load(path.read_text()) or {}
+    missing = sorted(k for k, v in raw.items() if not (isinstance(v, dict) and v.get("provenance")))
+    if missing:
+        raise ValueError(
+            f"{path}: block(s) {missing} carry no `provenance` — a curated block needs a "
+            "source, the date it was read, and what would make it stale"
+        )
+    return MappingProxyType({str(k): v for k, v in raw.items()})
 
 
 def _load(filename: str, section: str) -> Mapping[str, dict]:
@@ -314,18 +378,90 @@ def _free_text(row: dict) -> str:
     return " ".join(str(row.get(key) or "") for key in ("description", "status_text")).lower()
 
 
+def researched_builder(
+    row: dict, attributions: Mapping[str, dict]
+) -> tuple[str | None, str] | None:
+    """What the researched roster says about this row — or None when it says nothing.
+
+    Looked up by zpid first and then by the address the feed writes, the same order and for
+    the same reason as `bath_correction`: an entry aimed at one home beats one aimed at its
+    plan sheet.
+
+    Three outcomes, and the third is the point of the file existing. A `description`-basis
+    entry resolves RESEARCHED; a `plan-match`-basis entry resolves INFERRED, because that
+    is honestly all it is; and an entry recording that the evidence points at two builders
+    resolves `(None, UNRESOLVED)` — which is not the same as "nothing known", because it
+    also stops the heuristics from picking one. `None` (nothing known) is the only return
+    that lets them run.
+
+    A stale entry — one whose recorded plan name, community or address the feed no longer
+    agrees with — returns `None` rather than its builder. Same doctrine as a stale bath
+    correction: an attribution that no longer describes the row it keys is one to
+    re-verify, not one to trust.
+    """
+    for key in (str(row.get("zpid") or ""), (row.get("address") or "")):
+        entry = attributions.get(key) if key else None
+        if entry is None:
+            continue
+        if _attribution_is_stale(row, entry):
+            return None
+        if entry.get("candidates"):
+            return None, UNRESOLVED
+        builder = entry.get("builder")
+        if not builder:
+            return None  # a person looked and found nothing; let the heuristics try
+        return builder, _BASIS_TIERS.get(entry.get("basis"), INFERRED)
+    return None
+
+
+def _attribution_is_stale(row: dict, entry: Mapping) -> bool:
+    """Does the feed still say what this entry was verified against?
+
+    A plan entry is guarded by the plan name and community the address decomposes into; a
+    spec entry by the address itself. A guard the entry does not carry cannot fail — an
+    entry written before the guard existed is trusted rather than silently dropped.
+    """
+    address = row.get("address")
+    recorded_address = entry.get("address")
+    if recorded_address and address and recorded_address != address:
+        return True
+    for field, actual in (
+        ("plan_name", plan_name(address)),
+        ("community", plan_community(address)),
+    ):
+        recorded = entry.get(field)
+        if recorded and actual and recorded != actual:
+            return True
+    return False
+
+
 def attribute_builder(
-    row: dict, plans_by_builder: Mapping[str, Sequence[dict]]
+    row: dict,
+    plans_by_builder: Mapping[str, Sequence[dict]],
+    attributions: Mapping[str, dict] | None = None,
 ) -> tuple[str | None, str]:
     """Who built this home, and how sure that is — (builder, tier).
 
+    RESEARCHED: the roster in `data/builder-attribution.yaml` names the builder on the
+              strength of evidence a person read and recorded the source of. Consulted
+              first, before any heuristic runs, because it is the only tier whose provenance
+              survives in git rather than in a scrape.
     CONFIRMED: the builder names itself in the listing's own text.
-    INFERRED: the home matches a known plan sheet exactly, by plan name or by footage.
+    INFERRED: the home matches a known plan sheet exactly, by plan name or by footage — or
+              the roster records exactly that match as its own basis.
               An exact footage match is strong in new construction precisely because a
               plan is built to a spec sheet; it is not a resale coincidence.
     UNRESOLVED: no evidence, or evidence pointing at two builders — which is not weaker
               evidence, it is none, and it is returned as none.
+
+    `attributions` defaults to nothing researched rather than to the file on disk, the same
+    way `plans_by_builder` defaults to nothing known: this is a pure function of what it is
+    handed. `assess` is where the file gets read.
     """
+    researched = researched_builder(row, attributions or {})
+    if researched is not None:
+        return researched
+
     text = _free_text(row)
     named = {b for b in plans_by_builder if b.strip() and b.lower() in text}
     if len(named) == 1:
@@ -369,6 +505,7 @@ def assess(
     corrections: Mapping[str, dict] | None = None,
     sqft_ranges: Mapping[str, dict] | None = None,
     plans_by_builder: Mapping[str, Sequence[dict]] | None = None,
+    attributions: Mapping[str, dict] | None = None,
 ) -> dict[str, DataQuality]:
     """One `DataQuality` record per home, keyed by zpid.
 
@@ -379,9 +516,14 @@ def assess(
 
     `plans_by_builder` defaults to nothing known, and nothing known yields UNRESOLVED for
     every home, which is the correct answer for a market whose builders nobody has mapped.
+    `attributions` is the one input that defaults to *disk*: the researched roster is a fact
+    about this repository rather than something a caller assembles, and a caller that had to
+    remember to pass it is a caller that will one day forget and silently lose the roster.
+    Pass `{}` to assess as though nobody had researched anything.
     """
     corrections = bath_corrections() if corrections is None else corrections
     sqft_ranges = plan_sqft_ranges() if sqft_ranges is None else sqft_ranges
+    attributions = builder_attributions() if attributions is None else attributions
     plans_by_builder = plans_by_builder or {}
 
     duplicates = find_duplicates(rows)
@@ -417,7 +559,7 @@ def assess(
         if duplicate_of:
             flags.append(DUPLICATE_LISTING)
 
-        builder, tier = attribute_builder(row, plans_by_builder)
+        builder, tier = attribute_builder(row, plans_by_builder, attributions)
         assessed[zpid] = DataQuality(
             zpid=zpid,
             flags=tuple(flags),

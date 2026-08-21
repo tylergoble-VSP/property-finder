@@ -256,11 +256,17 @@ def test_asking_more_than_the_price_list_costs_points(sessions):
 
 
 def test_an_observed_cut_is_worth_more_than_a_shallow_one(sessions):
-    """Cuts come out of history, so this is two sweeps: a first ask, then a lower one."""
-    _record(sessions, [*[_plan(*p) for p in PRICE_LIST]])
+    """Cuts come out of history, so this is two sweeps: a first ask, then a lower one.
+
+    Both sweeps carry the whole market, price list included, because that is what a sweep
+    is — every row the watch saw that morning. A fixture that recorded the plan sheets in a
+    sweep of their own would be describing a market where the builder's price list and its
+    houses were never on sale at the same time.
+    """
     _record(
         sessions,
         [
+            *[_plan(*p) for p in PRICE_LIST],
             _spec("deep", "1725 Crested Ridge Rd, Aledo, TX 76008", 400_000, 2000),
             _spec("shallow", "1727 Crested Ridge Rd, Aledo, TX 76008", 400_000, 2000),
         ],
@@ -269,6 +275,7 @@ def test_an_observed_cut_is_worth_more_than_a_shallow_one(sessions):
     _record(
         sessions,
         [
+            *[_plan(*p) for p in PRICE_LIST],
             _spec("deep", "1725 Crested Ridge Rd, Aledo, TX 76008", 380_000, 2000),  # −5%
             _spec("shallow", "1727 Crested Ridge Rd, Aledo, TX 76008", 396_000, 2000),  # −1%
         ],
@@ -386,3 +393,61 @@ def test_no_estimate_or_rent_figure_can_reach_the_score(sessions):
     cards = _scored(sessions)
 
     assert cards["plain"].score == cards["estimated"].score
+
+
+# -- on the market today, not ever ------------------------------------------------------
+#
+# The 180-homes-when-145-were-live bug (docs/PORTING-THE-REPORTS.md, lesson 2), proved
+# closed in the two functions where it was still reachable. Both read
+# `latest_snapshot_rows`, which is the right query for history and the wrong one for a page
+# dated today, and both now filter to the current sweep inside the module — so no caller
+# has to re-learn the distinction.
+
+
+def test_a_withdrawn_plan_leaves_the_ask_curve(sessions):
+    """A price the builder has stopped asking cannot set the yardstick for anything."""
+    yesterday, today = "2026-07-01T00:00:00Z", "2026-07-08T00:00:00Z"
+    _record(
+        sessions,
+        [*[_plan(*p) for p in PRICE_LIST], _plan("gone", "GONE Plan, Walsh Ranch 60'", 4_000_000, 2000)],
+        ts=yesterday,
+    )
+    _record(sessions, [_plan(*p) for p in PRICE_LIST], ts=today)
+
+    baseline = _baseline(sessions)
+
+    assert baseline.n_plans == len(PRICE_LIST)  # not len + 1
+    assert "GONE Plan, Walsh Ranch 60'" not in [p.plan for p in baseline.plans]
+    # And the curve is not dragged by a plan nobody can buy: five plans at $200/sf.
+    assert baseline.comparable_ppsf(2000).ppsf == 200.0
+
+
+def test_a_delisted_spec_home_is_not_scored(sessions):
+    """A leaderboard of homes for sale must not rank one that sold a fortnight ago."""
+    yesterday, today = "2026-07-01T00:00:00Z", "2026-07-08T00:00:00Z"
+    live = _spec("live", "1725 Crested Ridge Rd, Aledo, TX 76008", 380_000, 2000)
+    sold = _spec("sold", "1727 Crested Ridge Rd, Aledo, TX 76008", 360_000, 2000)
+    _record(sessions, [*[_plan(*p) for p in PRICE_LIST], live, sold], ts=yesterday)
+    _record(sessions, [*[_plan(*p) for p in PRICE_LIST], live], ts=today)
+
+    cards = _scored(sessions)
+
+    assert sorted(cards) == ["live"]
+
+
+def test_a_duplicate_is_still_caught_when_its_twin_was_last_seen_a_sweep_ago(sessions):
+    """Why the filter is on the scoring loop and not on the query.
+
+    Data quality reads the whole of history on purpose: a home the feed invented under a
+    second zpid has to be measured against the record it duplicates, and that record may
+    not have been sighted this morning.
+    """
+    yesterday, today = "2026-07-01T00:00:00Z", "2026-07-08T00:00:00Z"
+    keeper = _spec("keeper", "1820 Crested Ridge Rd, Aledo, TX 76008", 400_000, 2000)
+    twin = _spec("twin", "1820 Crested Rdg, Fort Worth, TX 76008", 400_000, 2000)
+    _record(sessions, [*[_plan(*p) for p in PRICE_LIST], keeper], ts=yesterday)
+    _record(sessions, [*[_plan(*p) for p in PRICE_LIST], twin], ts=today)
+
+    cards = _scored(sessions)
+
+    assert cards == {}, "the twin is dropped, and it was the only home in today's sweep"

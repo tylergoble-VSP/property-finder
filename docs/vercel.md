@@ -83,6 +83,64 @@ scripts/deploy.sh                 # build_site.py, then npx vercel deploy --prod
 propertyfinder daily --deploy     # the whole daily pipeline, chaining scripts/deploy.sh last
 ```
 
+### Verify from outside, as a visitor
+
+Nothing the deploying machine saw counts. After the upload, `scripts/deploy.sh` runs
+`scripts/verify_deploy.py` against `SITE_BASE_URL` and fetches every path the manifest names,
+following no redirects: a `public` path must answer 200 with real bytes and no login redirect, a
+`private` one must be refused, and any `og:image` in the served response must be absolute.
+
+```bash
+SITE_BASE_URL=https://property-finder.vercel.app scripts/deploy.sh
+.venv/bin/python scripts/verify_deploy.py https://property-finder.vercel.app   # by hand
+```
+
+`SITE_BASE_URL` must be the **production alias**, not a per-deployment URL. Vercel leaves the
+alias public and SSO-gates the long `project-hash.vercel.app` address — that one 302s to a login
+page — and `vercel deploy`'s success line distinguishes neither, so sharing the wrong one hands
+an audience a password prompt. Point the checker at the long URL and every public assertion
+fails, correctly. With `SITE_BASE_URL` unset the check is skipped with a loud `NOT VERIFIED`
+line on stderr rather than quietly: a pipeline whose silence is indistinguishable from success
+will eventually be silent.
+
+### Three deploy targets, all three declared
+
+The original's post-mortem item 8 was "three deploy targets accreted — hence the manifest".
+This project has three too. The difference is that each one declares what it publishes, in a
+file of the same shape, checkable by the same script:
+
+| Target | Manifest | What it is | Republish with |
+|---|---|---|---|
+| the reports site | `site-manifest.yaml` | the watch's pages, private behind `SITE_PASSWORD` plus two public pages | `scripts/deploy.sh` |
+| the talk deck | `site-talk/publish-manifest.yaml` | 31 slides, its own project (it ships an image asset the reports copier would refuse) | `npx vercel deploy --prod --yes --cwd site-talk` |
+| the agent ledger | `annex/agent-finder/publish-manifest.yaml` | the annex's luxury listing-agent outreach page, its own project | `scripts/publish_ledger.sh` |
+
+The deck and the ledger stay separate projects rather than becoming manifest entries because
+`scripts/build_site.py` accepts exactly one shape of path — `reports/*.html` under the repository
+root — and that narrowness is the guarantee that `.env` and the database are unpublishable by
+construction. Widening it to reach an annex's output directory would trade a structural
+guarantee for a convenience. What the separation costs is the accretion the post-mortem warned
+about, and that is paid for by declaring all three here and pointing the outside-in check at
+each. `tests/test_verify_deploy.py` fails if a manifest exists that this table does not mention.
+
+`scripts/publish_ledger.sh` builds the annex report, renders it through `verify_page.py` before
+anything is uploaded, stages exactly that one file with its own `vercel.json`, deploys, and — with
+`LEDGER_BASE_URL` set — fetches it as a visitor.
+
+### The pages this project publishes
+
+| Path | Visibility | Built by |
+|---|---|---|
+| `/walsh-aledo` | private | `report` (the canonical page: the map where a sold companion exists) |
+| `/walsh-aledo-map` | private | `map` |
+| `/walsh-new-construction` | public | `report --kind newcon --public` |
+| `/walsh-deal-map` | public | `map --public` |
+
+A `--public` render uses the model's own market-neutral `FinanceAssumptions` in place of the
+watch's block and writes a `-public` filename; a private render never writes one. The two halves
+therefore occupy disjoint filename spaces, which is what makes a private page unpublishable by a
+typo, and `tests/test_public_pages.py` audits every `public` entry's embedded payload.
+
 `scripts/deploy.sh` refuses outright — before ever calling `vercel` — if `site/` does not
 exist or holds no real page (an empty `site-manifest.yaml` is valid and produces exactly
 that shape: an index with nothing to link). Point your scheduler at

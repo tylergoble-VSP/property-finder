@@ -368,3 +368,57 @@ def price_change_map(session: Session, watch_name: str) -> dict[str, dict]:
             "cut_pct": (cut_dollars / first * 100) if first else None,
         }
     return changes
+
+
+# -- the observed window ----------------------------------------------------------------
+#
+# Everything above answers "what is true now" or "what changed since last time". A page that
+# quotes a *rate* — homes absorbed per month, months of supply — needs a third question
+# answered: how long have we been watching, and what did each home do across that whole
+# span. Measured between the last two sweeps, absorption at Walsh found one home in fourteen
+# days and put months-of-supply at 18.2 — a headline number resting on a sample of one.
+# Across the full observed history it was 13.3 on a sample of four (docs/PORTING-THE-REPORTS.md,
+# lesson 7). Neither window is right in general; the fix is to make the long one available and
+# to put the window itself on the page, which needs these two queries.
+
+
+def sweep_timestamps(session: Session, watch_name: str) -> list[str]:
+    """Every sweep this watch has on record, oldest first.
+
+    The count of these is `n_sweeps` and the ends of the list are the observed window. Both
+    belong in a payload rather than in a template's prose, so that a sentence saying how long
+    the tool has been watching cannot disagree with how long it has been watching.
+    """
+    rows = session.execute(
+        text(
+            "SELECT DISTINCT snapshot_ts FROM snapshots WHERE watch_name = :watch "
+            "ORDER BY snapshot_ts ASC"
+        ),
+        {"watch": watch_name},
+    ).all()
+    return [r[0] for r in rows]
+
+
+def observation_spans(session: Session, watch_name: str) -> dict[str, dict]:
+    """Per home: when this watch first saw it, when it last saw it, and how often.
+
+    `last_ts` is what makes absorption measurable. A home whose last sighting predates the
+    most recent sweep has left the market during the observed window — sold, withdrawn, or
+    relisted under a new identity, and the feed does not say which, which is why a page
+    should call the number "absorbed" and not "sold".
+    """
+    rows = session.execute(
+        text(
+            """
+            SELECT zpid,
+                   MIN(snapshot_ts) AS first_ts,
+                   MAX(snapshot_ts) AS last_ts,
+                   COUNT(*)         AS n_obs
+            FROM snapshots
+            WHERE watch_name = :watch
+            GROUP BY zpid
+            """
+        ),
+        {"watch": watch_name},
+    ).mappings().all()
+    return {r["zpid"]: dict(r) for r in rows}

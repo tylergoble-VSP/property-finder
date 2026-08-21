@@ -1,0 +1,914 @@
+# Who built each home, and how that was established. The feed does not say.
+#
+# The single most useful fact about a new-construction market — which builder is selling
+# this house — is absent from the listing feed entirely. There is no builder field. So
+# `propertyfinder/dataquality.py` recovers it, and this file is the part of that recovery
+# a person did rather than a heuristic: the researched Walsh roster, 68 plan sheets and 40
+# standing spec homes, entered as versioned data so no future accident can lose it again.
+#
+# WHY "AGAIN". This roster was reconstructed once already, by parsing the embedded JSON out
+# of a previously published HTML report, because every working copy of it had been lost. It
+# was recoverable at all by luck. Versioned data beside the code that reads it is how that
+# stops being a matter of luck (docs/PORTING-THE-REPORTS.md, lesson 4).
+#
+# WHAT `basis` MEANS, AND WHY IT IS NOT ONE FIELD. Attribution is only ever as strong as the
+# evidence for it, so each entry records which kind it rests on, and `attribute_builder`
+# hands back a matching tier rather than promoting everything here to certainty:
+#
+#   basis: description   The builder names itself in the listing's own prose. Read off the
+#                        listing, cross-checked against the builder's own plan or series
+#                        page. Resolves as RESEARCHED — the strongest tier this tool has,
+#                        because a person read it and wrote down where.
+#   basis: plan-match    Nobody names the builder; the plan's name and its footage match
+#                        one builder's published plan sheet exactly. Resolves as INFERRED,
+#                        the same tier the module's own matching earns, because that is
+#                        honestly what this is.
+#   basis: ambiguous     The evidence points at two builders. Resolves as UNRESOLVED, and
+#                        stops the heuristics rather than letting them pick. Ambiguous
+#                        evidence is not weaker evidence, it is none — and the entry exists
+#                        precisely so nobody re-researches it into a false certainty.
+#   basis: no-evidence   A person looked and the listing carries no description at all.
+#                        Recorded so the looking is not repeated; the heuristics still run,
+#                        because "nothing found" is not the same as "evidence conflicts".
+#
+# THE STALENESS GUARD. Same doctrine as `bath-corrections.yaml`: an entry carries the values
+# the feed showed when it was verified — `plan_name` and `community` for a plan sheet, the
+# `address` for a spec home — and if the feed no longer says those, the entry is stale and
+# is NOT applied. A builder revised a plan, or the feed renamed a community, and an old
+# attribution that no longer describes the row it keys is one to re-verify, not to trust.
+#
+# HOW TO ADD AN ENTRY. Open the listing and read its description; if the builder names
+# itself, that is `basis: description` and the entry is worth having. If it does not, open
+# the builder's own plan gallery and match the plan name and footage; that is
+# `basis: plan-match`. If two builders both fit — Perry Homes and Britton Homes share a
+# sales office and write near-identical copy — record it as `basis: ambiguous` with both
+# `candidates` and leave `builder` null. Never resolve an ambiguity by preference.
+#
+# Keys under `plans:` are the plan address exactly as the feed writes it, including its
+# casing ("GRANTLEY Plan, Walsh Ranch 70'" — the feed shouts some plan names and not
+# others). Keys under `specs:` are the zpid, because a spec home's address is spelled two
+# different ways by the same feed in the same sweep and the zpid is not.
+#
+# `builder_series` appears where the builder's own name for a lineup differs from the
+# community the feed files the plan under (Village Homes sells "Walsh 50ft Homesites";
+# the feed says "Walsh"). It is provenance, not something anything computes from.
+
+plans:
+  "Bartley Plan, Walsh Gardens":
+    builder: "David Weekley Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "Bartley"
+    community: "Walsh Gardens"
+
+  "BENSON Plan, Walsh Ranch 60'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "BENSON"
+    community: "Walsh Ranch 60'"
+
+  "BRENNER Plan, Walsh Ranch 60'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "BRENNER"
+    community: "Walsh Ranch 60'"
+
+  "BRIARGATE Plan, Walsh Ranch 70'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "BRIARGATE"
+    community: "Walsh Ranch 70'"
+
+  "BRINKLEY Plan, Walsh Ranch 70'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "BRINKLEY"
+    community: "Walsh Ranch 70'"
+
+  "BROOKDALE II Plan, Walsh Ranch 70'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "BROOKDALE II"
+    community: "Walsh Ranch 70'"
+
+  "BRYNLEE IV Plan, Walsh Ranch 60'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "BRYNLEE IV"
+    community: "Walsh Ranch 60'"
+
+  "BURKHART Plan, Walsh Ranch 60'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "BURKHART"
+    community: "Walsh Ranch 60'"
+
+  "Camborne Plan, Walsh Cottage":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Camborne"
+    community: "Walsh Cottage"
+
+  "Chadwell Plan, Walsh Gardens":
+    builder: "David Weekley Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "Chadwell"
+    community: "Walsh Gardens"
+
+  "Charleston Plan, Walsh":
+    builder: "Village Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Charleston"
+    community: "Walsh"
+    builder_series: "Walsh 50ft Homesites"
+
+  "Daisy Plan, Walsh Classic":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Daisy"
+    community: "Walsh Classic"
+
+  "EASTLAND II Plan, Walsh Ranch 70'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "EASTLAND II"
+    community: "Walsh Ranch 70'"
+
+  "ELLIOT Plan, Walsh Ranch 70'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "ELLIOT"
+    community: "Walsh Ranch 70'"
+
+  "GRANBURY Plan, Walsh Ranch 70'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "GRANBURY"
+    community: "Walsh Ranch 70'"
+
+  "GRANTLEY Plan, Walsh Ranch 70'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "GRANTLEY"
+    community: "Walsh Ranch 70'"
+
+  "Harding 4232 Plan, Walsh":
+    builder: "GFO Home"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Harding 4232"
+    community: "Walsh"
+    builder_series: "GFO Freedom"
+
+  "Herald Plan, Walsh Gardens":
+    builder: "David Weekley Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "Herald"
+    community: "Walsh Gardens"
+
+  "Huntmere Plan, Walsh Cottage":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Huntmere"
+    community: "Walsh Cottage"
+
+  "Jasmine Plan, Walsh Classic":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Jasmine"
+    community: "Walsh Classic"
+
+  "Lankford Plan, Walsh Classic":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Lankford"
+    community: "Walsh Classic"
+
+  "Laurinda Plan, Walsh Cottage":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Laurinda"
+    community: "Walsh Cottage"
+
+  "Lavender Plan, Walsh Classic":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Lavender"
+    community: "Walsh Classic"
+
+  "LORENZO III Plan, Walsh Ranch 70'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "LORENZO III"
+    community: "Walsh Ranch 70'"
+
+  "Magnolia Plan, Walsh Classic":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Magnolia"
+    community: "Walsh Classic"
+
+  "MARANDA Plan, Walsh Ranch 60'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "MARANDA"
+    community: "Walsh Ranch 60'"
+
+  "Marietta Plan, Walsh Cottage":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Marietta"
+    community: "Walsh Cottage"
+
+  "Meriweather Plan, Walsh Cottage":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Meriweather"
+    community: "Walsh Cottage"
+
+  "Morley Plan, Walsh Gardens":
+    builder: "David Weekley Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "Morley"
+    community: "Walsh Gardens"
+
+  "OAKLEY III Plan, Walsh Ranch 70'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "OAKLEY III"
+    community: "Walsh Ranch 70'"
+
+  "OVERLOOK Plan, Walsh Ranch 70'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "OVERLOOK"
+    community: "Walsh Ranch 70'"
+
+  "Plan 213 Plan, Walsh":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Plan 213"
+    community: "Walsh"
+    builder_series: "Walsh 60s"
+
+  "Plan 214 Plan, Walsh":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Plan 214"
+    community: "Walsh"
+    builder_series: "Walsh 60s"
+
+  "Plan 215 Plan, Walsh":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Plan 215"
+    community: "Walsh"
+    builder_series: "Walsh 60s"
+
+  "Plan 216 Plan, Walsh":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Plan 216"
+    community: "Walsh"
+    builder_series: "Walsh 60s"
+
+  "Plan 217 Plan, Walsh":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Plan 217"
+    community: "Walsh"
+    builder_series: "Walsh 60s"
+
+  "Plan 218 Plan, Walsh":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Plan 218"
+    community: "Walsh"
+    builder_series: "Walsh 60s"
+
+  "Plan 220 Plan, Walsh":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Plan 220"
+    community: "Walsh"
+    builder_series: "Walsh 60s"
+
+  "Plan 221 Plan, Walsh":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Plan 221"
+    community: "Walsh"
+    builder_series: "Walsh 60s"
+
+  "Plan 222 Plan, Walsh":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Plan 222"
+    community: "Walsh"
+    builder_series: "Walsh 60s"
+
+  "Plan 223 Plan, Walsh":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Plan 223"
+    community: "Walsh"
+    builder_series: "Walsh 60s"
+
+  "Plan 224 Plan, Walsh":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Plan 224"
+    community: "Walsh"
+    builder_series: "Walsh 60s"
+
+  "Plan 248H Plan, Walsh":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Plan 248H"
+    community: "Walsh"
+    builder_series: "Walsh 60s"
+
+  "PRESLEY III Plan, Walsh Ranch 70'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "PRESLEY III"
+    community: "Walsh Ranch 70'"
+
+  "Primrose Plan, Walsh Classic":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Primrose"
+    community: "Walsh Classic"
+
+  "Raddington Plan, Walsh Classic":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Raddington"
+    community: "Walsh Classic"
+
+  "Ridgepoint Plan, Walsh Cottage":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Ridgepoint"
+    community: "Walsh Cottage"
+
+  "Rose Plan, Walsh Classic":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Rose"
+    community: "Walsh Classic"
+
+  "SYDNEY Plan, Walsh Ranch 60'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "SYDNEY"
+    community: "Walsh Ranch 60'"
+
+  "The Bennett Plan, Walsh":
+    builder: "Village Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Bennett"
+    community: "Walsh"
+    builder_series: "Walsh 50ft Homesites"
+
+  "The Bradley Plan, Walsh":
+    builder: "Village Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Bradley"
+    community: "Walsh"
+    builder_series: "Walsh 50ft Homesites"
+
+  "The Burgundy Plan, Walsh":
+    builder: "Village Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Burgundy"
+    community: "Walsh"
+    builder_series: "Walsh 50ft Homesites"
+
+  "The Conway Plan, Walsh":
+    builder: "Village Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Conway"
+    community: "Walsh"
+    builder_series: "Walsh 50ft Homesites"
+
+  "The Darby Plan, Walsh":
+    builder: "Village Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Darby"
+    community: "Walsh"
+    builder_series: "Walsh 50ft Homesites"
+
+  "The Emery Plan, Walsh":
+    builder: "Village Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Emery"
+    community: "Walsh"
+    builder_series: "Walsh 50ft Homesites"
+
+  "The Harrison Plan, Walsh":
+    builder: "GFO Home"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Harrison"
+    community: "Walsh"
+    builder_series: "GFO Presidential"
+
+  "The Jefferson Plan, Walsh":
+    builder: "GFO Home"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Jefferson"
+    community: "Walsh"
+    builder_series: "GFO Presidential"
+
+  "The Johnson Plan, Walsh":
+    builder: "GFO Home"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Johnson"
+    community: "Walsh"
+    builder_series: "GFO Presidential"
+
+  "The Kendrick Plan, Walsh":
+    builder: "Village Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Kendrick"
+    community: "Walsh"
+    builder_series: "Walsh 50ft Homesites"
+
+  "The Kennedy II Plan, Walsh":
+    builder: "GFO Home"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Kennedy II"
+    community: "Walsh"
+    builder_series: "GFO Presidential"
+
+  "The Lafayette Plan, Walsh":
+    builder: "Village Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Lafayette"
+    community: "Walsh"
+    builder_series: "Walsh 50ft Homesites"
+
+  "The Limoges - Model Home Plan, Walsh":
+    builder: "Village Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Limoges - Model Home"
+    community: "Walsh"
+    builder_series: "Walsh 50ft Homesites"
+
+  "The Lincoln Plan, Walsh":
+    builder: "GFO Home"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Lincoln"
+    community: "Walsh"
+    builder_series: "GFO Presidential"
+
+  "The Roosevelt II Plan, Walsh":
+    builder: "GFO Home"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Roosevelt II"
+    community: "Walsh"
+    builder_series: "GFO Presidential"
+
+  "The Wilson Plan, Walsh":
+    builder: "GFO Home"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "The Wilson"
+    community: "Walsh"
+    builder_series: "GFO Freedom"
+
+  "VIOLET Plan, Walsh Ranch 60'":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    plan_name: "VIOLET"
+    community: "Walsh Ranch 60'"
+
+  "Wildflower Plan, Walsh Cottage":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Wildflower"
+    community: "Walsh Cottage"
+
+  "Zinnia Plan, Walsh Classic":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    plan_name: "Zinnia"
+    community: "Walsh Classic"
+
+specs:
+  "345829294":
+    builder: "GFO Home"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "1833 Shumard Way, Aledo, TX 76008"
+
+  "345829316":
+    builder: "GFO Home"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "1841 Shumard Way, Aledo, TX 76008"
+
+  "345829319":
+    builder: "GFO Home"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "1820 Crested Ridge Rd, Aledo, TX 76008"
+
+  "345829325":
+    builder: "GFO Home"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "1633 Oak Trail Dr, Aledo, TX 76008"
+
+  "452241976":
+    builder: "Drees Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "14465 Overlook Park Dr, Aledo, TX 76008"
+
+  "458858099":
+    builder: "Village Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2146 Village Walk Pl, Aledo, TX 76008"
+
+  "459684488":
+    builder: "Drees Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2017 Grey Birch Pl, Aledo, TX 76008"
+
+  "459915133":
+    builder: "High Street Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "13833 Carnegie Dr, Aledo, TX 76008"
+
+  "460711767":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2533 Domingo Dr, Aledo, TX 76008"
+
+  "460734317":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2529 Domingo Dr, Aledo, TX 76008"
+
+  "461741661":
+    builder: null
+    candidates: [Perry Homes, Britton Homes]
+    basis: ambiguous
+    source: "the listing reads as either builder — Britton is Perry's luxury sister brand and shares Perry's Walsh sales office, and no evidence separates them"
+    verified_on: "2026-08-21"
+    address: "14217 Fountainhead Cir, Fort Worth, TX 76008"
+
+  "461935442":
+    builder: null
+    candidates: [Perry Homes, Britton Homes]
+    basis: ambiguous
+    source: "the listing reads as either builder — Britton is Perry's luxury sister brand and shares Perry's Walsh sales office, and no evidence separates them"
+    verified_on: "2026-08-21"
+    address: "14204 Fountainhead Cir, Fort Worth, TX 76008"
+
+  "461968634":
+    builder: "David Weekley Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    address: "14449 Walsh Ave, Fort Worth, TX 76008"
+
+  "461990851":
+    builder: null
+    basis: no-evidence
+    source: "the listing carries no description text at all, so nothing names a builder"
+    verified_on: "2026-08-21"
+    address: "2541 Green Plateau Dr, Fort Worth, TX 76008"
+
+  "462029949":
+    builder: "Perry Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "14321 Bluff Bend Trl, Fort Worth, TX 76008"
+
+  "462029952":
+    builder: "Perry Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2521 Green Plateau Dr, Fort Worth, TX 76008"
+
+  "462029967":
+    builder: "Perry Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2529 Green Plateau Dr, Fort Worth, TX 76008"
+
+  "462038051":
+    builder: "High Street Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "13841 Carnegie Dr, Fort Worth, TX 76008"
+
+  "462131365":
+    builder: "Perry Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2549 Domingo Dr, Fort Worth, TX 76008"
+
+  "462188553":
+    builder: "Perry Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2413 Red Hen Ln, Fort Worth, TX 76008"
+
+  "462188554":
+    builder: null
+    basis: no-evidence
+    source: "the listing carries no description text at all, so nothing names a builder"
+    verified_on: "2026-08-21"
+    address: "2513 Domingo Dr, Fort Worth, TX 76008"
+
+  "462279100":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2433 Red Hen Ln, Aledo, TX 76008"
+
+  "462383385":
+    builder: null
+    candidates: [Perry Homes, Britton Homes]
+    basis: ambiguous
+    source: "the listing reads as either builder — Britton is Perry's luxury sister brand and shares Perry's Walsh sales office, and no evidence separates them"
+    verified_on: "2026-08-21"
+    address: "14416 Game Creek Trl, Fort Worth, TX 76008"
+
+  "462431870":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2537 Domingo Dr, Fort Worth, TX 76008"
+
+  "462437309":
+    builder: null
+    candidates: [Perry Homes, Britton Homes]
+    basis: ambiguous
+    source: "the listing reads as either builder — Britton is Perry's luxury sister brand and shares Perry's Walsh sales office, and no evidence separates them"
+    verified_on: "2026-08-21"
+    address: "2429 Red Hen Ln, Fort Worth, TX 76008"
+
+  "462437312":
+    builder: "Britton Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "14445 Game Creek Trl, Fort Worth, TX 76008"
+
+  "462496934":
+    builder: "Drees Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    address: "2521 Domingo Dr, Fort Worth, TX 76008"
+
+  "462496935":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2545 Domingo Dr, Fort Worth, TX 76008"
+
+  "462548257":
+    builder: "Highland Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2429 Grand Gable Way, Aledo, TX 76008"
+
+  "462645886":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2509 Domingo Dr, Fort Worth, TX 76008"
+
+  "462949432":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "14545 Walsh Ave, Fort Worth, TX 76008"
+
+  "462949452":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2224 Rolling Oaks Dr, Fort Worth, TX 76008"
+
+  "463509193":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2208 Rolling Oaks Dr, Fort Worth, TX 76008"
+
+  "463612397":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "14308 Distant Rock Trl, Fort Worth, TX 76008"
+
+  "463996008":
+    builder: "GFO Home"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    address: "1617 Rolling Heights Ln, Aledo, TX 76008"
+
+  "464003071":
+    builder: "GFO Home"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    address: "1820 Crested Rdg, Fort Worth, TX 76008"
+
+  "464015943":
+    builder: "David Weekley Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    address: "14505 Walsh Ave, Aledo, TX 76008"
+
+  "464043294":
+    builder: "Drees Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "14216 Fountainhead Cir, Fort Worth, TX 76008"
+
+  "464207403":
+    builder: "David Weekley Homes"
+    basis: description
+    source: "the listing's own description names the builder"
+    verified_on: "2026-08-21"
+    address: "2404 Grand Gable Way, Fort Worth, TX 76008"
+
+  "464323446":
+    builder: "David Weekley Homes"
+    basis: plan-match
+    source: "plan name and footage matched to the builder's own plan sheet"
+    verified_on: "2026-08-21"
+    address: "14453 Walsh Ave, Aledo, TX 76008"

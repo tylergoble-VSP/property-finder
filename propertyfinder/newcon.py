@@ -47,7 +47,7 @@ import logging
 import re
 import statistics
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, NamedTuple, Sequence
 
 from sqlalchemy.orm import Session
 
@@ -98,6 +98,26 @@ UNNAMED_COMMUNITY = "(unnamed community)"
 
 def _address(row: dict) -> str:
     return row.get("address") or ""
+
+
+def on_the_market_today(rows: Sequence[dict]) -> list[dict]:
+    """The rows from the most recent sweep only — what is actually for sale right now.
+
+    `store.latest_snapshot_rows` answers a different and equally correct question: the
+    newest sighting of every home this watch has ever seen. On any database older than one
+    sweep that set includes homes which have since been delisted, and a page dated today
+    that counts them is simply wrong. The first refreshed buyer report in the original tool
+    was built on 180 homes when 145 were live: it counted 35 dead listings, and every
+    median, every count and the fitted ask curve were polluted by them
+    (docs/PORTING-THE-REPORTS.md, lesson 2).
+
+    So the filter lives here, in the module, applied by every function whose output
+    describes the present — never in a caller, because a caller is a place the rule has to
+    be re-learned. A baseline or a model fitted *for* a current-market page is fitted on
+    this set, not on the raw query.
+    """
+    sweep_ts = max((r["snapshot_ts"] for r in rows), default=None)
+    return [r for r in rows if r["snapshot_ts"] == sweep_ts] if sweep_ts else []
 
 
 def is_plan_sheet(row: dict) -> bool:
@@ -200,8 +220,13 @@ def compute_plan_baseline(session: Session, watch_name: str) -> PlanBaseline:
     numbers, and a plan missing either cannot sit on it. Everything that is not a plan
     sheet — resales, spec homes, land — is ignored here by construction, which is what
     keeps the builder's offers and the market's sales on opposite sides of the analysis.
+
+    The curve is fitted on the *current* sweep only (`on_the_market_today`). A plan the
+    builder has withdrawn is a price it is no longer asking, and leaving it on the curve
+    would let a discontinued plan set the yardstick every standing spec home is scored
+    against.
     """
-    rows = latest_snapshot_rows(session, watch_name)
+    rows = on_the_market_today(latest_snapshot_rows(session, watch_name))
     plans = [r for r in rows if is_plan_sheet(r) and r.get("price") and r.get("sqft")]
 
     by_community: dict[str, list[dict]] = {}
@@ -399,6 +424,11 @@ def score_specs(
     listed twice is dropped from the ranking entirely, because a leaderboard that shows
     one house in two places is wrong in the way readers notice.
 
+    Only homes seen in the most recent sweep are scored. Data quality still runs over the
+    whole of history — that is deliberate, and it is the reason the filter is applied to the
+    loop rather than to the query: a duplicate needs the twin it duplicates, and the twin
+    may last have been seen a sweep ago.
+
     The import sits inside the function on purpose. `dataquality` speaks this module's
     plan-sheet vocabulary and imports it at module scope; scoring is the one place the
     arrow turns around, and it turns around here rather than at import time.
@@ -411,7 +441,7 @@ def score_specs(
 
     cards: list[ScoreCard] = []
     duplicates = 0
-    for row in rows:
+    for row in on_the_market_today(rows):
         if not is_spec(row):
             continue
         found = quality.get(str(row.get("zpid") or ""))

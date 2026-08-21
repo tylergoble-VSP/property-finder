@@ -1,0 +1,10 @@
+# What the deck publishes, in the shape `scripts/verify_deploy.py` reads.
+#
+# The deck is its own Vercel project rather than an entry in `site-manifest.yaml` — it has no
+# relationship to the reports pipeline, and it ships an image asset that the reports copier
+# would refuse by construction. But "its own project" is exactly how the original ended up
+# with three deploy targets nobody could list, so the outside-in check is pointed at it here,
+# deliberately, in a file with the same shape (docs/PORTING-THE-REPORTS.md, lesson 12).
+- source: site-talk/index.html
+  dest: index.html
+  visibility: public

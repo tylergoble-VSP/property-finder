@@ -4,10 +4,19 @@
     propertyfinder watches                 list what is configured
     propertyfinder sweep [--watch NAME]    look at the market and say what moved
     propertyfinder report [--watch NAME]   build the HTML report from what sweep stored
+                          [--kind newcon]  ...or the new-construction buyer report
+                          [--public]       ...with market-neutral finance assumptions
     propertyfinder map [--watch NAME]      the deal map, under its own dated name
+                       [--public]         ...neutral finance, under a -public name
     propertyfinder predictions             how wrong the valuation model has been
     propertyfinder enrich [--watch NAME]   pull year built, lot, dues and tax via detail
     propertyfinder daily [--no-sweep] [--deploy]   sweep, rebuild, digest, optionally publish
+
+A scheduler should point at `scripts/daily.sh` rather than at this module directly. It asserts
+that its working directory and its virtualenv actually exist before doing anything and logs one
+greppable line when they do not — because the plist that invoked the console script directly
+failed with exit 127 every morning for a fortnight after the project folder moved, and launchd
+swallowed every one of them (docs/scheduling.md).
 
 The original grew to fourteen commands, several of them one-offs that outlived their
 question. This one adds a command when a person needs it, not when a module appears.
@@ -40,10 +49,18 @@ import httpx
 
 from propertyfinder.adapters import ZillowAdapter
 from propertyfinder.budget import BudgetExceeded, CallBudget
-from propertyfinder.config import Settings, build_engine, load_watch_config
+from propertyfinder.config import (
+    FinanceAssumptions,
+    Settings,
+    build_engine,
+    load_watch_config,
+)
 from propertyfinder.digest import build_digest
 from propertyfinder.enrich import enrich_watch
+from propertyfinder.heartbeat import read as read_heartbeat
+from propertyfinder.heartbeat import write as write_heartbeat
 from propertyfinder.mapdata import build_map_payload, sold_companion
+from propertyfinder.newconreport import build_payload as build_newcon_payload
 from propertyfinder.notify import send_email
 from propertyfinder.pagebuild import render
 from propertyfinder.predictions import (
@@ -65,6 +82,20 @@ from propertyfinder.timeutil import utc_now_iso
 log = logging.getLogger(__name__)
 
 REPORTS_DIR = Path("reports")
+
+# A page kind that is a *companion* to a watch rather than the canonical answer for it gets
+# its own suffixed name, the same way `map` does. `report` publishes the page a link to the
+# watch should mean; the new-construction buyer report is a second, longer document about one
+# slice of the same market, and a reader following a bookmark to `walsh-aledo` should not find
+# it swapped out for one.
+STEM_FOR_KIND = {"newcon": "{name}-newcon"}
+
+# A page rendered for an audience without a password gets its own filename, always. Not a
+# convenience: it is the reason a private build can never be published by mistake. The
+# manifest names files, so a public entry naming a `-public` file and a private render never
+# writing one means the two cannot be confused by a typo, a rebuild, or a tired evening
+# (docs/PORTING-THE-REPORTS.md, lesson 9).
+PUBLIC_SUFFIX = "-public"
 
 # `daily` runs once a morning against a monthly allowance, so its default budget is a
 # slice of that allowance rather than the whole thing — spending the entire month's quota
@@ -132,7 +163,7 @@ def cmd_sweep(args, settings: Settings, client: httpx.Client | None) -> int:
 
 def cmd_report(args, settings: Settings, _client) -> int:
     """One report per watch, of whichever kind the data can honestly support."""
-    return _write_pages(args, settings, stem="{name}", kind=args.kind)
+    return _write_pages(args, settings, stem="{name}", kind=args.kind, public=args.public)
 
 
 def cmd_map(args, settings: Settings, _client) -> int:
@@ -143,10 +174,12 @@ def cmd_map(args, settings: Settings, _client) -> int:
     map, at `<watch>-map.html`, so a link to the map keeps meaning the map even on a day
     the market has nothing to score.
     """
-    return _write_pages(args, settings, stem="{name}-map", kind="map")
+    return _write_pages(args, settings, stem="{name}-map", kind="map", public=args.public)
 
 
-def _write_pages(args, settings: Settings, stem: str, kind: str | None) -> int:
+def _write_pages(
+    args, settings: Settings, stem: str, kind: str | None, public: bool = False
+) -> int:
     config = load_watch_config(args.watch_config)
     watches = [w for w in config.watches if not args.watch or w.name == args.watch]
     if not watches:
@@ -165,9 +198,12 @@ def _write_pages(args, settings: Settings, stem: str, kind: str | None) -> int:
         now = utc_now_iso()
         chosen, why = _kind_for(config, watch, kind)
         with sessions() as session:
-            page, count, note = _build_page(session, watch, config, now, chosen)
+            page, count, note = _build_page(session, watch, config, now, chosen, public)
 
-        dated, latest = _write_page_pair(stem.format(name=watch.name), now, page)
+        name = STEM_FOR_KIND.get(chosen, stem).format(name=watch.name)
+        if public:
+            name += PUBLIC_SUFFIX
+        dated, latest = _write_page_pair(name, now, page)
         print(
             f"{watch.name}: {count} listing(s) · {chosen} report ({why}{note}) "
             f"-> {dated} and {latest}"
@@ -204,16 +240,38 @@ def _kind_for(config, watch, requested: str | None) -> tuple[str, str]:
     return "table", "no sold companion watch, so nothing here is valued against sales"
 
 
-def _build_page(session, watch, config, now: str, kind: str) -> tuple[str, int, str]:
+def _build_page(
+    session, watch, config, now: str, kind: str, public: bool = False
+) -> tuple[str, int, str]:
     """(the page, how many homes are on it, what it had to do without).
 
     The note is what makes the degradation visible from a terminal. A map built on a market
     with too few sales to fit is still a map, and the line that announces it says why it
     carries no scores — rather than leaving someone to open the file and wonder.
+
+    `public` renders with the model's own market-neutral `FinanceAssumptions` in place of the
+    watch's block. It is a flag rather than a hand-edited config file because that is how the
+    original produced its public deal map, and a hand-edited config is exactly the mechanism
+    by which a private build one day ships by accident (docs/PORTING-THE-REPORTS.md, lesson 9).
     """
-    finance = config.finance_for(watch)
+    finance = FinanceAssumptions() if public else config.finance_for(watch)
+    if kind == "newcon":
+        payload = build_newcon_payload(session, watch, config, now, finance)
+        window = payload["market"]["window"]
+        note = (
+            ""
+            if window["n_sweeps"] > 1
+            else "; no movement yet: one sweep on record, so nothing has a before"
+        )
+        count = payload["market"]["n_plans"] + payload["market"]["n_specs"]
+        return render("newcon.html", payload), count, note
+
     if kind == "map":
         payload = build_map_payload(session, watch, config, now)
+        # The map payload builds its own finance block from the watch; a public render has to
+        # reach in and replace it, so that `--public` means the same thing on every kind.
+        if public:
+            payload["finance"] = finance.model_dump()
         note = "" if payload["model"]["fitted"] else f"; not scored: {payload['model']['reason']}"
         return render("map.html", payload), payload["counts"]["active"], note
 
@@ -359,6 +417,12 @@ def cmd_daily(args, settings: Settings, client: httpx.Client | None) -> int:
 
     with sessions() as session:
         subject, body = build_digest(session, config, now)
+    # The previous run's mark, stated in this run's digest. A morning that silently did not
+    # happen is visible on the next one, in a sentence a person is already reading.
+    previous = read_heartbeat(REPORTS_DIR)
+    body += "\n" + (
+        previous.sentence(now) if previous else "last daily run: no heartbeat on record"
+    ) + "\n"
     sent = send_email(settings, subject, body)
     print(f"digest {'emailed' if sent else 'printed (SMTP unconfigured)'}: {subject}")
     if not sent:
@@ -371,6 +435,13 @@ def cmd_daily(args, settings: Settings, client: httpx.Client | None) -> int:
         print(f"deploy: {'ok' if exit_code == 0 else f'failed (exit {exit_code})'}")
 
     print(f"budget: {budget}")
+    # Stamped last, and stamped whatever happened: "it ran and it failed" and "it never ran"
+    # are different problems, and a heartbeat written only on success cannot tell them apart.
+    heartbeat = write_heartbeat(
+        REPORTS_DIR, utc_now_iso(), exit_code, budget.spent,
+        note="--no-sweep" if args.no_sweep else "",
+    )
+    print(f"heartbeat: {heartbeat}")
     return exit_code
 
 
@@ -455,15 +526,28 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--watch", help="report only this watch (default: every watch)")
     report.add_argument(
         "--kind",
-        choices=("map", "table"),
+        choices=("map", "table", "newcon"),
         help="which page to build (default: the map where a sold companion watch exists, "
-        "the table where none does)",
+        "the table where none does; `newcon` is the new-construction buyer report, which is "
+        "on demand only and written under its own -newcon name)",
+    )
+    report.add_argument(
+        "--public",
+        action="store_true",
+        help="render with market-neutral finance assumptions instead of the watch's own, for "
+        "a page that will be reachable without a password",
     )
 
     mapper = subparsers.add_parser(
         "map", help="build the deal map for one watch, or all of them"
     )
     mapper.add_argument("--watch", help="map only this watch (default: every watch)")
+    mapper.add_argument(
+        "--public",
+        action="store_true",
+        help="render with market-neutral finance assumptions, under a -public filename, for "
+        "a page that will be reachable without a password",
+    )
 
     subparsers.add_parser(
         "predictions", help="how wrong the valuation model has been, per segment"

@@ -1,3 +1,6 @@
+<!doctype html>
+<html lang="en">
+<head>
 <!-- Luxury listing-agent outreach report. Built by agentfinder.reportdata + pagebuild.render:
      this file is the whole of *how* it looks; the data arrives as one JSON payload spliced
      into the token below. No markup is assembled in Python. -->
@@ -65,6 +68,9 @@
   .foot{margin-top:40px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);
     padding-top:14px}
 </style>
+</head>
+<body>
+
 <div class="wrap"><div id="app"></div></div>
 <script>
 const DATA = /*__PAYLOAD__*/{};
@@ -163,3 +169,6 @@ function render() {
 }
 render();
 </script>
+
+</body>
+</html>

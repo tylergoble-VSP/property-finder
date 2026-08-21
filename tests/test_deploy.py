@@ -22,7 +22,7 @@ def _script(path: Path, body: str) -> Path:
     return path
 
 
-def _run(tmp_path: Path, python_body: str):
+def _run(tmp_path: Path, python_body: str, **env):
     npx_stub = _script(tmp_path / "npx_stub.sh", 'echo "STUB NPX CALLED: $*"')
     python_stub = _script(tmp_path / "python_stub.sh", python_body)
     (tmp_path / "scripts").mkdir(exist_ok=True)
@@ -34,6 +34,7 @@ def _run(tmp_path: Path, python_body: str):
             "PROPERTYFINDER_ROOT": str(tmp_path),
             "PYTHON": str(python_stub),
             "NPX": str(npx_stub),
+            **env,
         },
         capture_output=True,
         text=True,
@@ -93,3 +94,45 @@ def test_deploy_script_is_shellcheck_clean():
 
         pytest.skip("shellcheck is not installed")
     assert shellcheck.returncode == 0, shellcheck.stdout + shellcheck.stderr
+
+
+# -- the post-deploy check, which is the only one that sees what a visitor sees ------------
+
+
+def test_an_unset_base_url_says_so_loudly_rather_than_skipping_quietly(tmp_path):
+    """A pipeline whose silence is indistinguishable from success will eventually be silent."""
+    result = _run(tmp_path, 'mkdir -p site && echo "<html>page</html>" > site/walsh.html')
+
+    assert result.returncode == 0
+    assert "STUB NPX CALLED" in result.stdout
+    assert "NOT VERIFIED" in result.stderr
+
+
+def test_the_deploy_fails_when_the_outside_in_check_fails(tmp_path):
+    """`verify_deploy.py` is reached through the same PYTHON seam build_site.py is, so the
+    stub can stand in for either — here it succeeds as the builder and fails as the verifier,
+    which is exactly the sequence a wrong URL produces."""
+    body = (
+        'if [[ "$1" == *verify_deploy.py ]]; then\n'
+        '  echo "  https://x/open: a page marked public answered 302" >&2\n'
+        "  exit 1\n"
+        "fi\n"
+        'mkdir -p site && echo "<html>page</html>" > site/walsh.html'
+    )
+    result = _run(tmp_path, body, SITE_BASE_URL="https://example.test")
+
+    assert result.returncode == 1
+    assert "STUB NPX CALLED" in result.stdout  # the upload happened
+    assert "answered 302" in result.stderr  # ...and then the check refused to bless it
+
+
+def test_a_passing_outside_in_check_leaves_the_deploy_successful(tmp_path):
+    body = (
+        'if [[ "$1" == *verify_deploy.py ]]; then echo "all clear as a visitor sees it"; exit 0; fi\n'
+        'mkdir -p site && echo "<html>page</html>" > site/walsh.html'
+    )
+    result = _run(tmp_path, body, SITE_BASE_URL="https://example.test")
+
+    assert result.returncode == 0
+    assert "all clear as a visitor sees it" in result.stdout
+    assert "NOT VERIFIED" not in result.stderr
