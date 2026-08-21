@@ -38,9 +38,9 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = ROOT / "site-manifest.yaml"
 
-# Vercel's clean URLs: `walsh-aledo.html` is served at `/walsh-aledo`.
+# Vercel's clean URLs: `walsh-aledo.html` is served at `/walsh-aledo`, and `index.html` at `/`.
 def _clean(dest: str) -> str:
-    return dest.removesuffix(".html")
+    return "" if dest == "index.html" else dest.removesuffix(".html")
 
 
 # What "you are being asked to log in" looks like from outside: either the edge middleware's

@@ -117,7 +117,23 @@ window.addEventListener("load", function () {
     });
 
     var sections = [];
-    document.querySelectorAll("section, .slide, .tblwrap, table").forEach(function (node) {
+    // A slide is a frame the size of the display, by design. Content taller than it is
+    // content the audience never sees, whether the slide scrolls internally or clips — so a
+    // slide is measured vertically no matter what its overflow-y says. Twelve of thirty-one
+    // slides failed this at 1280x720 while all thirty-one fitted at the 1920x1080 they were
+    // authored at.
+    document.querySelectorAll(".slide").forEach(function (node) {
+      var dx = node.scrollWidth - node.clientWidth;
+      var dy = node.scrollHeight - node.clientHeight;
+      if (dx > 1 || dy > 1) {
+        sections.push({
+          id: node.dataset.chap ? "slide[" + node.dataset.chap + "]" : "slide",
+          index: Array.prototype.indexOf.call(document.querySelectorAll(".slide"), node) + 1,
+          dx: dx, dy: dy
+        });
+      }
+    });
+    document.querySelectorAll("section:not(.slide), .tblwrap, table").forEach(function (node) {
       // A container that declares its own horizontal scrolling is doing its job, not
       // overflowing: a wide table inside overflow-x:auto is the correct answer to a wide
       // table. What is never correct is the page itself scrolling sideways.
@@ -129,7 +145,7 @@ window.addEventListener("load", function () {
       if (dx > 1 || (fixed && dy > 1)) {
         sections.push({
           id: node.id || node.className || node.tagName.toLowerCase(),
-          dx: dx, dy: fixed ? dy : 0
+          index: null, dx: dx, dy: fixed ? dy : 0
         });
       }
     });
@@ -144,6 +160,7 @@ window.addEventListener("load", function () {
       dark: window.matchMedia("(prefers-color-scheme: dark)").matches,
       page_overflow_x: doc.scrollWidth - window.innerWidth,
       text_length: text.length,
+      slides: document.querySelectorAll(".slide").length,
       forbidden: found,
       sections: sections,
       counts: counts
@@ -182,18 +199,22 @@ def chrome() -> str:
     )
 
 
-def payload_of(page: str) -> tuple[str, dict]:
-    """(the payload script's id, the payload) — the page's own embedded truth.
+def payload_of(page: str) -> tuple[str | None, dict]:
+    """(the payload script's id, the payload) — the page's own embedded truth, or (None, {}).
 
     The same JSON the template's script reads, which is what makes an element count a real
     check rather than a second guess: the number in the DOM is compared against the number
     the page was built from, not against a figure typed into this file.
+
+    A page with no payload is not an error. The talk deck is hand-authored HTML with no data
+    behind it, and the text, overflow and console checks are exactly as useful there — it just
+    has no counts to compare.
     """
     match = re.search(
         r'<script id="([\w-]+)" type="application/json">(.*?)</script>', page, re.S
     )
     if not match:
-        raise SystemExit("this page embeds no JSON payload — nothing to check counts against")
+        return None, {}
     # `pagebuild.render` escapes "</" so a payload string cannot close the tag early.
     return match.group(1), json.loads(match.group(2).replace("<\\/", "</"))
 
@@ -268,9 +289,14 @@ def check(path: Path, theme: str, viewport: tuple[int, int], timeout: int) -> li
                     f"{viewport[0]}×{viewport[1]}")
         )
     for section in report["sections"]:
+        where = (
+            f"slide {section['index']} of {report['slides']} ({section['id']})"
+            if section.get("index")
+            else f"<{section['id']}>"
+        )
         failures.append(
             Failure(path.name, theme,
-                    f"<{section['id']}> overflows by {section['dx']}px across and "
+                    f"{where} overflows by {section['dx']}px across and "
                     f"{section['dy']}px down")
         )
 
