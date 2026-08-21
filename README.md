@@ -61,7 +61,7 @@ per use.
 
 ### What it produced
 
-All three are live, and all three rebuild themselves from a fresh sweep.
+All four are live, and all four rebuild themselves from a fresh sweep.
 
 - **[The new-construction report](https://walsh-new-construction.vercel.app)** — the buyer's
   report for a single market's new builds.
@@ -70,6 +70,10 @@ All three are live, and all three rebuild themselves from a fresh sweep.
   (`docs/PORTING-THE-REPORTS.md`).
 - **[The luxury agent finder](https://walsh-luxury-agents.vercel.app)** — built by the agent
   on its own initiative, from the `annex/agent-finder` sub-project.
+- **[The Crockett 75835 shortlist](https://crockett-75835.vercel.app)** — a second market,
+  screened to one buyer's brief: 4+ bedrooms and 3,000+ sq ft, houses only, inside the ZIP.
+  13 homes out of the 250 the sweep found, and the page shows the other 237 by the reason
+  each was excluded. Public, no password (`publish/crockett-75835/publish-manifest.yaml`).
 
 ### The talk
 

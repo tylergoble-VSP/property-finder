@@ -116,6 +116,15 @@
   header.hero { padding: 44px 0 8px; border-bottom: 1px solid var(--hairline); }
   .read { font-size: 17px; line-height: 1.5; margin: 14px 0 4px; max-width: 74ch; }
   .read b { font-weight: 680; }
+
+  /* The buyer's brief, stated where a reader meets the page rather than in a footnote.
+     A shortlist whose scope is only discoverable by scrolling is a shortlist somebody
+     will quote as if it were the whole market. */
+  .brief { display: flex; flex-wrap: wrap; gap: 7px; margin: 14px 0 0; }
+  .brief .req {
+    background: var(--accent-soft); border: 1px solid var(--accent); color: var(--ink);
+    border-radius: 999px; padding: 4px 11px; font-size: 12.5px; font-weight: 620;
+  }
   .up { color: var(--bad); font-weight: 680; }
   .down { color: var(--good); font-weight: 680; }
 
@@ -218,6 +227,8 @@
   table.data td { padding: 8px 12px; border-bottom: 1px solid var(--hairline); }
   table.data tr:last-child td { border-bottom: none; }
   table.data td.num { text-align: right; white-space: nowrap; }
+  table.data tr.total td { font-weight: 700; border-top: 1px solid var(--border);
+                           border-bottom: 0; }
 
   .chartwrap { background: var(--surface); border: 1px solid var(--border);
                border-radius: 12px; padding: 14px; overflow-x: auto; }
@@ -260,6 +271,8 @@
     <p class="eyebrow">Property Finder &middot; deal report</p>
     <h1 id="pf-title">Loading&hellip;</h1>
     <p class="lede" id="pf-where"></p>
+    <div class="brief" id="pf-brief" hidden></div>
+    <p class="hint" id="pf-brief-note" style="margin-top:10px" hidden></p>
     <p class="read" id="pf-read"></p>
   </div>
 </header>
@@ -348,6 +361,20 @@
           above shows that exact arithmetic, line by line, and the lines add to the score.
           A score trimmed at the top of the scale writes the trim down as a line too.</p>
         <ul id="pf-model-notes"></ul>
+      </div>
+      <div class="card" id="pf-brief-card" hidden>
+        <h3>What the brief left out</h3>
+        <p class="hint">Every home the latest sweep found in this market, and the reason each
+          one that is not on this page did not make it. A brief that drops homes for
+          &ldquo;no square footage in the feed&rdquo; is not a strict brief &mdash; it is a
+          thin feed, and the two are worth telling apart before concluding anything about
+          what is available here.</p>
+        <div class="tablewrap">
+          <table class="data" id="pf-brief-table">
+            <thead><tr><th>Reason</th><th class="num">Homes</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
       <div class="card">
         <h3>Glossary</h3>
@@ -484,13 +511,49 @@
 
   function renderHeader() {
     var name = titleCase(payload.watch.name);
+    var brief = payload.criteria || { declared: false, describe: [], reasons: [] };
+    var n = payload.counts.active;
     document.title = name + " deal report · " + friendlyDate(payload.generated_ts);
     document.getElementById("pf-title").textContent = name + " deal report";
     document.getElementById("pf-where").textContent =
-      friendlyDate(payload.generated_ts) + " · " + payload.counts.active +
-      " active home" + (payload.counts.active === 1 ? "" : "s") + " within " +
-      payload.watch.radius_miles + " miles of " + payload.watch.center_address +
+      friendlyDate(payload.generated_ts) + " · " + n +
+      (brief.declared ? " matching home" : " active home") + (n === 1 ? "" : "s") +
+      " within " + payload.watch.radius_miles + " miles of " + payload.watch.center_address +
       (payload.sweep_ts ? ", swept " + payload.sweep_ts.slice(0, 10) : ", never swept");
+
+    if (!brief.declared) return;
+
+    // The brief itself, as pills, and the arithmetic underneath it. A shortlist quoted
+    // without the market it was drawn from is the number that gets misread.
+    var pills = document.getElementById("pf-brief");
+    brief.describe.forEach(function (clause) { pills.appendChild(el("span", "req", clause)); });
+    pills.hidden = false;
+
+    var note = document.getElementById("pf-brief-note");
+    note.textContent = brief.kept + " of " + brief.considered + " home" +
+      (brief.considered === 1 ? "" : "s") + " the latest sweep found in this market meet " +
+      "this brief; " + brief.dropped + " did not.";
+    note.hidden = false;
+  }
+
+  // -- what the brief removed, and why ----------------------------------------------
+
+  function renderBrief() {
+    var brief = payload.criteria;
+    if (!brief || !brief.declared || !brief.reasons.length) return;
+
+    var body = document.querySelector("#pf-brief-table tbody");
+    brief.reasons.forEach(function (reason) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, reason.why));
+      tr.appendChild(el("td", "num", plain(reason.n)));
+      body.appendChild(tr);
+    });
+    var total = el("tr", "total");
+    total.appendChild(el("td", null, "on this page"));
+    total.appendChild(el("td", "num", plain(brief.kept)));
+    body.appendChild(total);
+    document.getElementById("pf-brief-card").hidden = false;
   }
 
   function renderMarketRead() {
@@ -500,8 +563,12 @@
     var soldP50 = baseline && baseline.segments.all ? baseline.segments.all.p50 : null;
 
     if (!payload.counts.active) {
-      read.textContent = "Nothing is for sale here in the latest sweep, so there is nothing " +
-        "to judge today.";
+      read.textContent = (payload.criteria && payload.criteria.declared)
+        ? "No home in the latest sweep of this market meets the brief above, so there is " +
+          "nothing to judge today. The market itself is not empty — " +
+          payload.criteria.considered + " home" +
+          (payload.criteria.considered === 1 ? " was" : "s were") + " found and screened out."
+        : "Nothing is for sale here in the latest sweep, so there is nothing to judge today.";
       return;
     }
 
@@ -1098,6 +1165,7 @@
   }
 
   renderHeader();
+  renderBrief();
   renderMarketRead();
   renderKpis();
   renderMovement();

@@ -26,8 +26,10 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 
 from propertyfinder.costmodel import FinanceAssumptions, SpecialAssessment
+from propertyfinder.criteria import Criteria
 
 __all__ = [
+    "Criteria",
     "FinanceAssumptions",
     "Settings",
     "SpecialAssessment",
@@ -86,6 +88,10 @@ class Watch(BaseModel):
     queries: list[str] = Field(min_length=1)
     subdivision: str | None = None
     filters: dict = Field(default_factory=dict)
+    # The buyer's brief — beds, size, ZIP, home type. Applied when a report is built, not
+    # when the market is swept, so one purchase answers every brief this market is ever
+    # asked (propertyfinder/criteria.py explains why that ordering is the whole design).
+    criteria: Criteria = Field(default_factory=Criteria)
     # Only the money facts that are local to this market. Everything left unstated is
     # inherited from the global block by `WatchConfig.finance_for`.
     finance: FinanceAssumptions | None = None

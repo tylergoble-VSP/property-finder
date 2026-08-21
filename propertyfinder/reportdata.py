@@ -38,6 +38,7 @@ from sqlalchemy.orm import Session
 
 from propertyfinder.config import FinanceAssumptions, Watch
 from propertyfinder.costmodel import monthly_cost
+from propertyfinder.criteria import screen
 from propertyfinder.store import latest_snapshot_rows, price_change_map, sweep_changes
 
 
@@ -52,9 +53,16 @@ def build_payload(
     sweep_ts = max((r["snapshot_ts"] for r in rows), default=None)
     active = [r for r in rows if r["snapshot_ts"] == sweep_ts] if sweep_ts else []
 
+    # The buyer's brief, applied at render time exactly as the map applies it, so the two
+    # pages built from one watch are about the same set of homes and their counts agree.
+    screening = screen(active, watch.criteria)
+
     cuts_to_date = price_change_map(session, watch.name)
     listings = sorted(
-        (_listing_row(r, cuts_to_date.get(r["zpid"]), finance) for r in active),
+        (
+            _listing_row(r, cuts_to_date.get(r["zpid"]), finance)
+            for r in screening.kept
+        ),
         key=_listing_sort_key,
     )
 
@@ -65,9 +73,14 @@ def build_payload(
             "radius_miles": watch.radius_miles,
             "listing_status": watch.listing_status,
         },
+        "criteria": screening.as_payload(),
         "generated_ts": generated_ts,
         "sweep_ts": sweep_ts,
-        "counts": {"total": len(listings)},
+        "counts": {
+            "total": len(listings),
+            "considered": screening.considered,
+            "screened_out": screening.n_dropped,
+        },
         "medians": {
             "price": _median(r["price"] for r in listings),
             "price_per_sqft": _median(r["price_per_sqft"] for r in listings),

@@ -66,3 +66,84 @@ watches:
     queries: ["Aledo, TX 76008"]
     subdivision: walsh
     filters: {}
+
+  # Crockett, Houston County — the whole of ZIP 75835, screened to one buyer's brief.
+  #
+  # Two things about this market are different from Walsh and both are load-bearing.
+  #
+  # It is RURAL AND LARGE. 75835 is not a subdivision, it is roughly 300 square miles of
+  # Houston County, and a page-1 probe on 2026-08-21 returned listings spanning 31.209 to
+  # 31.424 north and -95.628 to -95.288 west — about 15 miles by 20. The radius below is
+  # sized to contain that with headroom rather than to be tight; the ZIP clause in
+  # `criteria` is what actually decides membership, and the observed feed already answers
+  # this query with 100% in-ZIP addresses, so the circle is a guard against a mis-resolved
+  # place string (the Minerva, Ohio failure) rather than the filter itself.
+  #
+  # There is NO SUBDIVISION FILTER, because there is no subdivision. Where Walsh needs a
+  # street allowlist to isolate a community inside a circle, this watch wants the circle.
+  - name: crockett-75835
+    center_address: "Crockett, TX 75835"
+    lat: 31.3187
+    lon: -95.4577
+    radius_miles: 18.0
+    listing_status: for_sale
+    max_pages: 10          # 7 pages observed 2026-08-21; headroom for a busier week
+    queries: ["Crockett, TX 75835"]
+    filters: {}
+    # The brief, applied when the report is built and not when the market is swept, so the
+    # database holds all of 75835 and this can be re-asked without spending a call
+    # (propertyfinder/criteria.py, module docstring).
+    criteria:
+      zip: "75835"
+      min_beds: 4
+      min_sqft: 3000
+      # Land, not houses. 135 of the 253 listings this ZIP returned on 2026-08-21 are LOT
+      # rows, and the feed prints bed counts and floor areas on some of them: "Loop 304/San
+      # Antonio Rd" arrives as a $2.4m 4-bed of 6,263 sq ft and is a bare parcel. Without
+      # this clause that parcel is the third most expensive "home" on the page. Checked
+      # against the data before being written down — no MANUFACTURED or MULTI_FAMILY row in
+      # this market meets 4 beds and 3,000 feet, so the allowlist costs nothing real, and
+      # anything it does remove in a later sweep is counted by name in the page's own
+      # "what the brief left out" table rather than vanishing.
+      home_types: ["SINGLE_FAMILY"]
+    # NO VERIFIED TAX RATE, AND THAT IS WHY THERE IS NO `finance:` BLOCK HERE.
+    #
+    # Walsh states 2.339427% because somebody read the five adopted rates and wrote the
+    # citation down. The equivalent has NOT been done for this market, and inventing one
+    # would be the exact mistake docs/REBUILD.md post-mortem item 3 exists to prevent. Two
+    # things make it harder here than at Walsh, and both must be settled before a number
+    # goes in:
+    #
+    #   1. 75835 spans the city of Crockett AND unincorporated Houston County. An in-city
+    #      address carries the city levy and a County Road address does not, so this market
+    #      has two stacks, not one, and most of the homes the brief selects are rural.
+    #   2. Only one component has been verified so far: City of Crockett 2025 adopted rate
+    #      $0.6808 per $100 (crocketttexas.org/media/3046). Houston County, Crockett ISD and
+    #      the hospital district rates were not obtainable from a published source on
+    #      2026-08-21 and are NOT guessed at here.
+    #
+    # Until that is done this watch inherits the global 2.0% placeholder, and the page it
+    # publishes is rendered with `--public`, which replaces the watch's finance block with
+    # the model's own market-neutral assumptions and prints them in the assumptions panel
+    # as assumptions. To fix properly: verify all four entities, then add a `finance:` block
+    # here with `default_tax_rate` and `tax_rate_citation`, exactly as walsh-aledo does.
+
+  # Sold companion, by the <name>-sold convention. Texas is a non-disclosure state, so
+  # expect price to be null on most rows and the re-anchored estimate to serve as the
+  # $/sqft proxy — every figure resting on it is labelled basis="proxy".
+  #
+  # DELIBERATELY UNSCREENED except for the ZIP. The hedonic model controls for size and
+  # bedrooms; narrowing its comps to the brief's own 4-bed/3,000-foot shape would starve
+  # the fit of exactly the range it needs in order to measure them, and in a market this
+  # thin it would leave almost nothing to fit at all.
+  - name: crockett-75835-sold
+    center_address: "Crockett, TX 75835"
+    lat: 31.3187
+    lon: -95.4577
+    radius_miles: 18.0
+    listing_status: sold
+    max_pages: 20
+    queries: ["Crockett, TX 75835"]
+    filters: {}
+    criteria:
+      zip: "75835"

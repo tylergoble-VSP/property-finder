@@ -147,8 +147,8 @@ def test_the_fitted_payload_has_the_shape_the_template_reads(fitted):
     payload = _payload(fitted)
 
     assert set(payload) == {
-        "watch", "generated_ts", "sweep_ts", "counts", "medians", "finance", "model",
-        "sold_baseline", "listings", "movement", "newcon", "curve", "solds",
+        "watch", "criteria", "generated_ts", "sweep_ts", "counts", "medians", "finance",
+        "model", "sold_baseline", "listings", "movement", "newcon", "curve", "solds",
     }
     assert payload["model"]["fitted"] is True
     assert payload["model"]["n"] == 40
@@ -307,8 +307,18 @@ def test_the_degraded_payload_snapshots_cleanly(sessions):
         },
         "generated_ts": GENERATED,
         "sweep_ts": T1,
+        "criteria": {
+            "declared": False,
+            "describe": [],
+            "considered": 1,
+            "kept": 1,
+            "dropped": 0,
+            "reasons": [],
+        },
         "counts": {
             "active": 1,
+            "considered": 1,
+            "screened_out": 0,
             "scored": 0,
             "great_or_good": 0,
             "underpriced": 0,
