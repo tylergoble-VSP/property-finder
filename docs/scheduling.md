@@ -87,3 +87,22 @@ said otherwise.
 
 Useful for testing the digest, SMTP settings, or a template change against real (already
 swept) data without touching the API budget at all.
+
+## Verifying a built page before it goes out
+
+`scripts/verify_page.py` renders a built page in headless Chrome and checks what came out:
+no `${`, `undefined`, `NaN` or `[[token]]` in visible text; element counts matching the
+embedded payload (markers, plan rows, ready-now cards, builder cards, ask-curve panels); no
+horizontal page overflow and no clipped section at the stated viewport; and — the failure that
+silently truncates a page while every build-time check still passes — no uncaught JavaScript
+error on the console.
+
+```bash
+.venv/bin/python scripts/verify_page.py reports/walsh-aledo-newcon.html
+.venv/bin/python scripts/verify_page.py reports/*.html --viewport 1920x1080
+```
+
+It renders both theme states by default, because a colour defined in only one of them is a bug
+in the other. It is **not** a member of the test suite: the suite stays offline and browser-free
+(`tests/test_map_page.py` explains the division of labour), and this covers exactly the layer
+the suite deliberately does not. Run it after any template change, before deploying.
