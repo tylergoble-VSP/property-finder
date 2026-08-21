@@ -263,3 +263,38 @@ def test_the_committed_manifest_parses_and_names_only_reports_paths():
     for entry in entries:
         assert entry.source.is_relative_to(build_site.REPORTS_DIR.resolve())
         assert entry.visibility in build_site.VISIBILITIES
+
+
+# -- the committed manifest, now that it has a public page in it -------------------------
+#
+# Until this stage every entry was private and the `public` branch of the copier was proved
+# only against fixtures. The public deal map is the first real page to travel it, so these
+# check the committed manifest itself rather than a temporary one.
+
+
+def test_the_committed_manifest_names_a_page_for_each_report_the_tool_builds():
+    """A manifest entry naming a file nothing builds is a deploy that fails at the last step."""
+    entries = build_site.load_manifest(build_site.MANIFEST_PATH, build_site.REPORTS_DIR)
+    names = {entry.source.name for entry in entries}
+
+    assert "walsh-aledo-newcon.html" in names  # report --kind newcon
+    assert "walsh-aledo-map-public.html" in names  # map --public
+
+
+def test_every_public_entry_names_a_public_render():
+    """The filename rule that makes a private page unpublishable by accident.
+
+    `report --public` and `map --public` write a `-public` name and a private render never
+    writes one, so an entry marked public can only ever point at a page rendered with
+    market-neutral assumptions. A typo cannot cross the line, because the two halves do not
+    share a filename (docs/PORTING-THE-REPORTS.md, lesson 9).
+    """
+    entries = build_site.load_manifest(build_site.MANIFEST_PATH, build_site.REPORTS_DIR)
+    public = [e for e in entries if e.visibility == "public"]
+
+    assert public, "the public code path has no real page exercising it"
+    for entry in public:
+        assert entry.source.stem.endswith("-public"), entry.source.name
+    for entry in entries:
+        if entry.visibility == "private":
+            assert not entry.source.stem.endswith("-public"), entry.source.name

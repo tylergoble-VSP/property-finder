@@ -7,6 +7,7 @@
                           [--kind newcon]  ...or the new-construction buyer report
                           [--public]       ...with market-neutral finance assumptions
     propertyfinder map [--watch NAME]      the deal map, under its own dated name
+                       [--public]         ...neutral finance, under a -public name
     propertyfinder predictions             how wrong the valuation model has been
     propertyfinder enrich [--watch NAME]   pull year built, lot, dues and tax via detail
     propertyfinder daily [--no-sweep] [--deploy]   sweep, rebuild, digest, optionally publish
@@ -80,6 +81,13 @@ REPORTS_DIR = Path("reports")
 # slice of the same market, and a reader following a bookmark to `walsh-aledo` should not find
 # it swapped out for one.
 STEM_FOR_KIND = {"newcon": "{name}-newcon"}
+
+# A page rendered for an audience without a password gets its own filename, always. Not a
+# convenience: it is the reason a private build can never be published by mistake. The
+# manifest names files, so a public entry naming a `-public` file and a private render never
+# writing one means the two cannot be confused by a typo, a rebuild, or a tired evening
+# (docs/PORTING-THE-REPORTS.md, lesson 9).
+PUBLIC_SUFFIX = "-public"
 
 # `daily` runs once a morning against a monthly allowance, so its default budget is a
 # slice of that allowance rather than the whole thing — spending the entire month's quota
@@ -158,7 +166,7 @@ def cmd_map(args, settings: Settings, _client) -> int:
     map, at `<watch>-map.html`, so a link to the map keeps meaning the map even on a day
     the market has nothing to score.
     """
-    return _write_pages(args, settings, stem="{name}-map", kind="map")
+    return _write_pages(args, settings, stem="{name}-map", kind="map", public=args.public)
 
 
 def _write_pages(
@@ -185,6 +193,8 @@ def _write_pages(
             page, count, note = _build_page(session, watch, config, now, chosen, public)
 
         name = STEM_FOR_KIND.get(chosen, stem).format(name=watch.name)
+        if public:
+            name += PUBLIC_SUFFIX
         dated, latest = _write_page_pair(name, now, page)
         print(
             f"{watch.name}: {count} listing(s) · {chosen} report ({why}{note}) "
@@ -511,6 +521,12 @@ def build_parser() -> argparse.ArgumentParser:
         "map", help="build the deal map for one watch, or all of them"
     )
     mapper.add_argument("--watch", help="map only this watch (default: every watch)")
+    mapper.add_argument(
+        "--public",
+        action="store_true",
+        help="render with market-neutral finance assumptions, under a -public filename, for "
+        "a page that will be reachable without a password",
+    )
 
     subparsers.add_parser(
         "predictions", help="how wrong the valuation model has been, per segment"
