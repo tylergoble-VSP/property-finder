@@ -640,3 +640,45 @@ def test_daily_deploy_failure_becomes_dailys_own_exit_code(home, capsys, monkeyp
 
     assert main(["daily", "--deploy"], client=client) == 1
     assert "deploy: failed (exit 1)" in capsys.readouterr().out
+
+
+# -- the heartbeat: a run that says it happened -------------------------------------------
+
+
+def test_daily_stamps_a_heartbeat_and_the_digest_reads_the_previous_one(home, capsys):
+    from propertyfinder.heartbeat import read as read_heartbeat
+
+    client, _ = _client(_market(_row("111", 500_000)))
+    assert main(["daily"], client=client) == 0
+    capsys.readouterr()
+
+    beat = read_heartbeat(home / "reports")
+    assert beat is not None and beat.ok
+    assert beat.calls_spent > 0
+
+    # The first run had no predecessor to report; the second reads the first out loud, in the
+    # digest a person is already reading, so a morning that silently did not happen shows up
+    # on the next one.
+    assert main(["daily", "--no-sweep"]) == 0
+    out = capsys.readouterr().out
+    assert "last daily run:" in out
+    assert beat.finished_ts in out
+
+
+def test_the_first_ever_run_says_there_is_no_heartbeat_rather_than_nothing(home, capsys):
+    assert main(["daily", "--no-sweep"]) == 0
+
+    assert "last daily run: no heartbeat on record" in capsys.readouterr().out
+
+
+def test_a_failing_deploy_still_leaves_a_heartbeat_carrying_its_status(home, monkeypatch, capsys):
+    """The distinction the whole mechanism exists for: a run that happened and failed is not
+    a run that never happened, and only a heartbeat written either way can say which."""
+    from propertyfinder.heartbeat import read as read_heartbeat
+
+    monkeypatch.setattr(cli, "_run_deploy_script", lambda *_a, **_k: 1)
+    assert main(["daily", "--no-sweep", "--deploy"]) == 1
+    capsys.readouterr()
+
+    beat = read_heartbeat(home / "reports")
+    assert beat is not None and not beat.ok and beat.exit_status == 1

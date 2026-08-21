@@ -31,6 +31,28 @@ refuse() {
   exit 1
 }
 
+# The morning run's own mark, checked before publishing what it produced. A deploy that
+# uploads a fortnight-old page without saying so is the silence lesson 16 is about, one layer
+# further along: this does not refuse — a person deploying by hand has every right to publish
+# a stale page — it just makes staleness impossible to publish unknowingly.
+"$PYTHON" - <<'PYCHECK' >&2 || true
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, ".")
+from propertyfinder.heartbeat import STALE_AFTER, read
+
+now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+beat = read(Path("reports"))
+if beat is None:
+    print("WARNING: no daily heartbeat on record — these pages may be from any morning at all")
+elif beat.is_stale(now):
+    print(f"WARNING: the daily run is stale — {beat.sentence(now)}")
+elif not beat.ok:
+    print(f"WARNING: the last daily run failed — {beat.sentence(now)}")
+PYCHECK
+
 "$PYTHON" scripts/build_site.py
 
 [[ -d "$SITE_DIR" ]] || refuse "$SITE_DIR does not exist (build_site.py should have created it)"

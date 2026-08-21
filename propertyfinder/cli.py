@@ -12,6 +12,12 @@
     propertyfinder enrich [--watch NAME]   pull year built, lot, dues and tax via detail
     propertyfinder daily [--no-sweep] [--deploy]   sweep, rebuild, digest, optionally publish
 
+A scheduler should point at `scripts/daily.sh` rather than at this module directly. It asserts
+that its working directory and its virtualenv actually exist before doing anything and logs one
+greppable line when they do not — because the plist that invoked the console script directly
+failed with exit 127 every morning for a fortnight after the project folder moved, and launchd
+swallowed every one of them (docs/scheduling.md).
+
 The original grew to fourteen commands, several of them one-offs that outlived their
 question. This one adds a command when a person needs it, not when a module appears.
 
@@ -51,6 +57,8 @@ from propertyfinder.config import (
 )
 from propertyfinder.digest import build_digest
 from propertyfinder.enrich import enrich_watch
+from propertyfinder.heartbeat import read as read_heartbeat
+from propertyfinder.heartbeat import write as write_heartbeat
 from propertyfinder.mapdata import build_map_payload, sold_companion
 from propertyfinder.newconreport import build_payload as build_newcon_payload
 from propertyfinder.notify import send_email
@@ -409,6 +417,12 @@ def cmd_daily(args, settings: Settings, client: httpx.Client | None) -> int:
 
     with sessions() as session:
         subject, body = build_digest(session, config, now)
+    # The previous run's mark, stated in this run's digest. A morning that silently did not
+    # happen is visible on the next one, in a sentence a person is already reading.
+    previous = read_heartbeat(REPORTS_DIR)
+    body += "\n" + (
+        previous.sentence(now) if previous else "last daily run: no heartbeat on record"
+    ) + "\n"
     sent = send_email(settings, subject, body)
     print(f"digest {'emailed' if sent else 'printed (SMTP unconfigured)'}: {subject}")
     if not sent:
@@ -421,6 +435,13 @@ def cmd_daily(args, settings: Settings, client: httpx.Client | None) -> int:
         print(f"deploy: {'ok' if exit_code == 0 else f'failed (exit {exit_code})'}")
 
     print(f"budget: {budget}")
+    # Stamped last, and stamped whatever happened: "it ran and it failed" and "it never ran"
+    # are different problems, and a heartbeat written only on success cannot tell them apart.
+    heartbeat = write_heartbeat(
+        REPORTS_DIR, utc_now_iso(), exit_code, budget.spent,
+        note="--no-sweep" if args.no_sweep else "",
+    )
+    print(f"heartbeat: {heartbeat}")
     return exit_code
 
 
