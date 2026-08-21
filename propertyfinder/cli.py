@@ -4,6 +4,8 @@
     propertyfinder watches                 list what is configured
     propertyfinder sweep [--watch NAME]    look at the market and say what moved
     propertyfinder report [--watch NAME]   build the HTML report from what sweep stored
+                          [--kind newcon]  ...or the new-construction buyer report
+                          [--public]       ...with market-neutral finance assumptions
     propertyfinder map [--watch NAME]      the deal map, under its own dated name
     propertyfinder predictions             how wrong the valuation model has been
     propertyfinder enrich [--watch NAME]   pull year built, lot, dues and tax via detail
@@ -40,10 +42,16 @@ import httpx
 
 from propertyfinder.adapters import ZillowAdapter
 from propertyfinder.budget import BudgetExceeded, CallBudget
-from propertyfinder.config import Settings, build_engine, load_watch_config
+from propertyfinder.config import (
+    FinanceAssumptions,
+    Settings,
+    build_engine,
+    load_watch_config,
+)
 from propertyfinder.digest import build_digest
 from propertyfinder.enrich import enrich_watch
 from propertyfinder.mapdata import build_map_payload, sold_companion
+from propertyfinder.newconreport import build_payload as build_newcon_payload
 from propertyfinder.notify import send_email
 from propertyfinder.pagebuild import render
 from propertyfinder.predictions import (
@@ -65,6 +73,13 @@ from propertyfinder.timeutil import utc_now_iso
 log = logging.getLogger(__name__)
 
 REPORTS_DIR = Path("reports")
+
+# A page kind that is a *companion* to a watch rather than the canonical answer for it gets
+# its own suffixed name, the same way `map` does. `report` publishes the page a link to the
+# watch should mean; the new-construction buyer report is a second, longer document about one
+# slice of the same market, and a reader following a bookmark to `walsh-aledo` should not find
+# it swapped out for one.
+STEM_FOR_KIND = {"newcon": "{name}-newcon"}
 
 # `daily` runs once a morning against a monthly allowance, so its default budget is a
 # slice of that allowance rather than the whole thing — spending the entire month's quota
@@ -132,7 +147,7 @@ def cmd_sweep(args, settings: Settings, client: httpx.Client | None) -> int:
 
 def cmd_report(args, settings: Settings, _client) -> int:
     """One report per watch, of whichever kind the data can honestly support."""
-    return _write_pages(args, settings, stem="{name}", kind=args.kind)
+    return _write_pages(args, settings, stem="{name}", kind=args.kind, public=args.public)
 
 
 def cmd_map(args, settings: Settings, _client) -> int:
@@ -146,7 +161,9 @@ def cmd_map(args, settings: Settings, _client) -> int:
     return _write_pages(args, settings, stem="{name}-map", kind="map")
 
 
-def _write_pages(args, settings: Settings, stem: str, kind: str | None) -> int:
+def _write_pages(
+    args, settings: Settings, stem: str, kind: str | None, public: bool = False
+) -> int:
     config = load_watch_config(args.watch_config)
     watches = [w for w in config.watches if not args.watch or w.name == args.watch]
     if not watches:
@@ -165,9 +182,10 @@ def _write_pages(args, settings: Settings, stem: str, kind: str | None) -> int:
         now = utc_now_iso()
         chosen, why = _kind_for(config, watch, kind)
         with sessions() as session:
-            page, count, note = _build_page(session, watch, config, now, chosen)
+            page, count, note = _build_page(session, watch, config, now, chosen, public)
 
-        dated, latest = _write_page_pair(stem.format(name=watch.name), now, page)
+        name = STEM_FOR_KIND.get(chosen, stem).format(name=watch.name)
+        dated, latest = _write_page_pair(name, now, page)
         print(
             f"{watch.name}: {count} listing(s) · {chosen} report ({why}{note}) "
             f"-> {dated} and {latest}"
@@ -204,16 +222,38 @@ def _kind_for(config, watch, requested: str | None) -> tuple[str, str]:
     return "table", "no sold companion watch, so nothing here is valued against sales"
 
 
-def _build_page(session, watch, config, now: str, kind: str) -> tuple[str, int, str]:
+def _build_page(
+    session, watch, config, now: str, kind: str, public: bool = False
+) -> tuple[str, int, str]:
     """(the page, how many homes are on it, what it had to do without).
 
     The note is what makes the degradation visible from a terminal. A map built on a market
     with too few sales to fit is still a map, and the line that announces it says why it
     carries no scores — rather than leaving someone to open the file and wonder.
+
+    `public` renders with the model's own market-neutral `FinanceAssumptions` in place of the
+    watch's block. It is a flag rather than a hand-edited config file because that is how the
+    original produced its public deal map, and a hand-edited config is exactly the mechanism
+    by which a private build one day ships by accident (docs/PORTING-THE-REPORTS.md, lesson 9).
     """
-    finance = config.finance_for(watch)
+    finance = FinanceAssumptions() if public else config.finance_for(watch)
+    if kind == "newcon":
+        payload = build_newcon_payload(session, watch, config, now, finance)
+        window = payload["market"]["window"]
+        note = (
+            ""
+            if window["n_sweeps"] > 1
+            else "; no movement yet: one sweep on record, so nothing has a before"
+        )
+        count = payload["market"]["n_plans"] + payload["market"]["n_specs"]
+        return render("newcon.html", payload), count, note
+
     if kind == "map":
         payload = build_map_payload(session, watch, config, now)
+        # The map payload builds its own finance block from the watch; a public render has to
+        # reach in and replace it, so that `--public` means the same thing on every kind.
+        if public:
+            payload["finance"] = finance.model_dump()
         note = "" if payload["model"]["fitted"] else f"; not scored: {payload['model']['reason']}"
         return render("map.html", payload), payload["counts"]["active"], note
 
@@ -455,9 +495,16 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--watch", help="report only this watch (default: every watch)")
     report.add_argument(
         "--kind",
-        choices=("map", "table"),
+        choices=("map", "table", "newcon"),
         help="which page to build (default: the map where a sold companion watch exists, "
-        "the table where none does)",
+        "the table where none does; `newcon` is the new-construction buyer report, which is "
+        "on demand only and written under its own -newcon name)",
+    )
+    report.add_argument(
+        "--public",
+        action="store_true",
+        help="render with market-neutral finance assumptions instead of the watch's own, for "
+        "a page that will be reachable without a password",
     )
 
     mapper = subparsers.add_parser(

@@ -268,6 +268,78 @@ def test_two_reports_on_the_same_day_are_byte_for_byte_identical(home, monkeypat
     assert first == second
 
 
+# -- report --kind newcon, the new-construction buyer report ---------------------------
+#
+# On demand rather than every morning, and under its own name rather than the watch's. A
+# reader following a bookmark to `walsh-aledo` should find the canonical page for that
+# market, not a second, longer document about one slice of it.
+
+
+def _newcon_market():
+    """A builder's price list and one standing home, which is the shape this page needs."""
+    plans = [
+        {**_row(f"pl{i}", 600_000 + i * 20_000, "New construction"),
+         "address": f"P{i} Plan, Walsh Ranch 60'", "sqft": 2800 + i * 100}
+        for i in range(6)
+    ]
+    spec = {**_row("s1", 700_000, "New construction"),
+            "address": "2404 Grand Gable Way, Fort Worth, TX 76008", "sqft": 3000}
+    return _market(*plans, spec)
+
+
+def test_report_kind_newcon_writes_the_buyer_report_under_its_own_name(home, capsys):
+    client, _ = _client(_newcon_market())
+    main(["sweep", "--watch", "walsh-aledo"], client=client)
+    capsys.readouterr()
+
+    assert main(["report", "--watch", "walsh-aledo", "--kind", "newcon"]) == 0
+    out = capsys.readouterr().out
+
+    assert "7 listing(s) · newcon report" in out  # six plan sheets and one standing home
+    assert "one sweep on record" in out  # the degradation, said out loud
+    latest = home / "reports" / "walsh-aledo-newcon.html"
+    dated = list((home / "reports").glob("walsh-aledo-newcon-*.html"))
+    assert latest.exists() and len(dated) == 1
+    assert dated[0].read_text() == latest.read_text()
+    # ...and the canonical page for the watch is untouched by a companion build.
+    assert not (home / "reports" / "walsh-aledo.html").exists()
+
+
+def test_the_buyer_report_carries_the_research_and_the_arithmetic(home):
+    client, _ = _client(_newcon_market())
+    main(["sweep", "--watch", "walsh-aledo"], client=client)
+    main(["report", "--watch", "walsh-aledo", "--kind", "newcon"])
+
+    page = (home / "reports" / "walsh-aledo-newcon.html").read_text()
+
+    assert "2404 Grand Gable Way, Fort Worth, TX 76008" in page
+    assert "Service and Assessment Plan" in page  # curated research
+    assert "Against the builder's ask" in page  # the score's own words
+    assert "Leaflet 1.9.4, a JS library for interactive maps" in page  # vendored, not fetched
+
+
+def test_two_buyer_reports_on_the_same_day_are_byte_for_byte_identical(home, monkeypatch):
+    client, _ = _client(_newcon_market())
+    main(["sweep", "--watch", "walsh-aledo"], client=client)
+    monkeypatch.setattr(cli, "utc_now_iso", lambda: "2026-07-20T09:00:00Z")
+
+    main(["report", "--watch", "walsh-aledo", "--kind", "newcon"])
+    first = (home / "reports" / "walsh-aledo-newcon.html").read_bytes()
+    main(["report", "--watch", "walsh-aledo", "--kind", "newcon"])
+
+    assert (home / "reports" / "walsh-aledo-newcon.html").read_bytes() == first
+    assert len(list((home / "reports").glob("walsh-aledo-newcon-*.html"))) == 1
+
+
+def test_daily_does_not_build_the_buyer_report(home, capsys):
+    """On demand until it has run clean for a week. `daily` builds the canonical pages."""
+    client, _ = _client(_newcon_market())
+    main(["daily", "--no-sweep"], client=client)
+    capsys.readouterr()
+
+    assert not list((home / "reports").glob("*newcon*"))
+
+
 def test_report_with_no_watch_named_covers_every_watch(home):
     client, _ = _client(_market(_row("111", 500_000)))
     main(["sweep"], client=client)
