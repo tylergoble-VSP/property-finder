@@ -20,9 +20,9 @@
 - source: reports/walsh-aledo-map.html
   dest: walsh-aledo-map.html
   visibility: private
-- source: reports/walsh-aledo-newcon.html
-  dest: walsh-aledo-newcon.html
-  visibility: private
+- source: reports/walsh-aledo-newcon-public.html
+  dest: walsh-new-construction.html
+  visibility: public
 - source: reports/walsh-aledo-map-public.html
   dest: walsh-deal-map.html
   visibility: public

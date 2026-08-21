@@ -277,7 +277,7 @@ def test_the_committed_manifest_names_a_page_for_each_report_the_tool_builds():
     entries = build_site.load_manifest(build_site.MANIFEST_PATH, build_site.REPORTS_DIR)
     names = {entry.source.name for entry in entries}
 
-    assert "walsh-aledo-newcon.html" in names  # report --kind newcon
+    assert "walsh-aledo-newcon-public.html" in names  # report --kind newcon --public
     assert "walsh-aledo-map-public.html" in names  # map --public
 
 
