@@ -154,3 +154,35 @@ def test_a_host_that_cannot_be_reached_at_all_is_an_error_not_a_pass(tmp_path):
 def test_a_manifest_publishing_nothing_verifies_nothing(tmp_path, capsys):
     assert _run("http://127.0.0.1:9", _manifest(tmp_path, [])) == 0
     assert "nothing to verify" in capsys.readouterr().out
+
+
+# -- the three deploy targets, each declared ---------------------------------------------
+#
+# The original's post-mortem item 8 is "three deploy targets accreted", and this project has
+# three of them too. The difference the port is paying for is that each one is declared, in a
+# manifest of the same shape, checkable by the same script. An undeclared target is the
+# problem; a declared one is a fact.
+
+DECLARED_MANIFESTS = (
+    "site-manifest.yaml",
+    "site-talk/publish-manifest.yaml",
+    "annex/agent-finder/publish-manifest.yaml",
+)
+
+
+@pytest.mark.parametrize("manifest", DECLARED_MANIFESTS)
+def test_every_deploy_target_declares_what_it_publishes(manifest):
+    root = Path(__file__).resolve().parent.parent
+    expected = verify_deploy.expectations(root / manifest)
+
+    assert expected, f"{manifest} declares no path at all"
+    assert all(e.path == "" or e.path.startswith("/") for e in expected)
+
+
+def test_docs_vercel_lists_every_declared_target():
+    """Because a target that is written down in a manifest and nowhere a person reads is a
+    target that has still accreted."""
+    docs = (Path(__file__).resolve().parent.parent / "docs" / "vercel.md").read_text()
+
+    for manifest in DECLARED_MANIFESTS:
+        assert manifest in docs, f"{manifest} is not mentioned in docs/vercel.md"

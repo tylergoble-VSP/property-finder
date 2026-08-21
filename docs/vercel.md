@@ -103,6 +103,30 @@ fails, correctly. With `SITE_BASE_URL` unset the check is skipped with a loud `N
 line on stderr rather than quietly: a pipeline whose silence is indistinguishable from success
 will eventually be silent.
 
+### Three deploy targets, all three declared
+
+The original's post-mortem item 8 was "three deploy targets accreted — hence the manifest".
+This project has three too. The difference is that each one declares what it publishes, in a
+file of the same shape, checkable by the same script:
+
+| Target | Manifest | What it is | Republish with |
+|---|---|---|---|
+| the reports site | `site-manifest.yaml` | the watch's pages, private behind `SITE_PASSWORD` plus two public pages | `scripts/deploy.sh` |
+| the talk deck | `site-talk/publish-manifest.yaml` | 31 slides, its own project (it ships an image asset the reports copier would refuse) | `npx vercel deploy --prod --yes --cwd site-talk` |
+| the agent ledger | `annex/agent-finder/publish-manifest.yaml` | the annex's luxury listing-agent outreach page, its own project | `scripts/publish_ledger.sh` |
+
+The deck and the ledger stay separate projects rather than becoming manifest entries because
+`scripts/build_site.py` accepts exactly one shape of path — `reports/*.html` under the repository
+root — and that narrowness is the guarantee that `.env` and the database are unpublishable by
+construction. Widening it to reach an annex's output directory would trade a structural
+guarantee for a convenience. What the separation costs is the accretion the post-mortem warned
+about, and that is paid for by declaring all three here and pointing the outside-in check at
+each. `tests/test_verify_deploy.py` fails if a manifest exists that this table does not mention.
+
+`scripts/publish_ledger.sh` builds the annex report, renders it through `verify_page.py` before
+anything is uploaded, stages exactly that one file with its own `vercel.json`, deploys, and — with
+`LEDGER_BASE_URL` set — fetches it as a visitor.
+
 ### The pages this project publishes
 
 | Path | Visibility | Built by |

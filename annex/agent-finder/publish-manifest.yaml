@@ -1,0 +1,21 @@
+# What the luxury listing-agent ledger publishes, in the shape scripts/verify_deploy.py reads.
+#
+# THE DECISION, WRITTEN DOWN. The ledger is its own Vercel project rather than an entry in the
+# root `site-manifest.yaml`. Two reasons, and the second is the real one:
+#
+#   1. `scripts/build_site.py` accepts exactly one shape of path — `reports/*.html` under the
+#      repository root — and that narrowness is the guarantee that `.env` and the database are
+#      unpublishable by construction. Widening it to reach an annex's output would trade a
+#      structural guarantee for a convenience.
+#   2. It is how the page is deployed today, so this is a declaration rather than a migration.
+#
+# The cost of that choice is exactly the original's post-mortem item 8: deploy targets that
+# "accreted" until nobody could list them. So it is paid for here — three targets, each with a
+# manifest in this shape, each named in docs/vercel.md, each checked from outside by
+# scripts/verify_deploy.py. An undeclared target is the problem; a declared one is a fact.
+#
+# `visibility: public` is the truth about this page rather than a wish: it carries no finance
+# block at all — the annex has no cost model — and it is sent noindex by its own vercel.json.
+- source: reports/walsh-luxury-25mi.html
+  dest: index.html
+  visibility: public

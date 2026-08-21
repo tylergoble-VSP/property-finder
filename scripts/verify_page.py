@@ -228,7 +228,14 @@ def run(path: Path, theme: str, viewport: tuple[int, int], timeout: int) -> tupl
 
     with tempfile.TemporaryDirectory() as tmp:
         copy = Path(tmp) / path.name
-        copy.write_text(page.replace("</body>", probe + "</body>", 1))
+        # Not every page here closes its body. The annex's report template ends at
+        # `</script>` and relies on the parser to close the rest, which is valid HTML and
+        # would have made this harness silently inject nothing at all.
+        copy.write_text(
+            page.replace("</body>", probe + "</body>", 1)
+            if "</body>" in page
+            else page + probe
+        )
         result = subprocess.run(
             [
                 chrome(),
