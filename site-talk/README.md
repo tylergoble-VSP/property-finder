@@ -1,6 +1,7 @@
 # So Easy A Grunt Could Do It — the talk deck
 
-31 slides, one self-contained HTML file, published at
+32 slides — the first is the title, the second is the recording — one self-contained HTML
+file, published at
 `so-easy-a-grunt-could-do-it.vercel.app` and also as a claude.ai artifact.
 
 ## One source, two builds
@@ -24,6 +25,25 @@ fragment and pasting it at a URL — is how this deck first shipped with no rese
 and a `<title>` sitting in the body where a browser ignores it entirely
 (`docs/PORTING-THE-REPORTS.md`, lesson 11).
 
+## The recording (slide 2)
+
+The walkthrough is a Loom embed — the one thing in this deck that is not in this repository.
+Two consequences worth knowing before editing it:
+
+- **Its `src` is deferred.** The iframe carries `data-src`, and the nav script sets `src` the
+  first time somebody walks to that slide. So opening the deck is still one request for one
+  file, `verify_page.py` renders all 32 slides without reaching a third party, and nobody who
+  never reaches slide 2 is announced to Loom. Setting `src` a second time would reload the
+  video and lose the viewer's place, so the attribute is dropped once it is mounted.
+- **It is blank in the artifact build.** claude.ai artifacts run under a CSP that blocks
+  every external host, so the fragment keeps the slide and the player cannot load in it. The
+  Vercel page is the one to share when the video is the point.
+
+Its box is sized in container units rather than by the usual `padding-bottom: 56.25%`, because
+a percentage padding is a fraction of *width* and these slides are constrained by *height* —
+the width-driven version is 647px tall on a 1150px stage and overflows a projector. The
+comment above `.videofit` in `index.html` has the arithmetic.
+
 ## Verify at the projector's resolution, not the laptop's
 
 ```bash
@@ -33,8 +53,8 @@ and a `<title>` sitting in the body where a browser ignores it entirely
 
 The harness measures every slide as a fixed frame and fails on any that overflows, in all four
 theme states (system dark and light, plus an explicit choice against the opposite system
-preference). Twelve of these thirty-one slides overflowed at 1280×720 — a projector's reality
-— while all thirty-one fitted at the 1920×1080 they were authored at. The fix was the
+preference). Twelve of the deck's slides overflowed at 1280×720 — a projector's reality —
+while every one of them fitted at the 1920×1080 they were authored at. The fix was the
 `@media (max-height: 820px)` block in `index.html`, which tightens vertical rhythm and caps
 figure heights rather than touching the full-size design, and the harness is what keeps it
 honest.
