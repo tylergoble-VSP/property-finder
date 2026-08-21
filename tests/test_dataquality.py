@@ -5,6 +5,8 @@ are the ones the seed sweeps actually returned. That matters more here than anyw
 in the suite — a detection tuned against imaginary data is a detection that has never met
 the thing it claims to catch.
 """
+from collections import Counter
+
 import pytest
 
 from propertyfinder.dataquality import (
@@ -13,6 +15,7 @@ from propertyfinder.dataquality import (
     CONFIRMED,
     DUPLICATE_LISTING,
     INFERRED,
+    RESEARCHED,
     SQFT_IS_BASE_OF_RANGE,
     SUSPECT_HALF_BATH_ROUNDUP,
     UNRESOLVED,
@@ -20,6 +23,7 @@ from propertyfinder.dataquality import (
     assess,
     attribute_builder,
     bath_corrections,
+    builder_attributions,
     find_duplicates,
     plan_sqft_ranges,
     same_address,
@@ -297,11 +301,27 @@ def test_a_market_whose_builders_nobody_has_mapped_resolves_nothing():
 
 
 def test_assess_carries_the_builder_onto_every_record():
+    """With no roster to consult, the caller's plan map is all there is, and it infers."""
+    rows = [_row("p1", "GRANTLEY Plan, Walsh Ranch 70'", price=824_200, sqft=4121, baths=5.0)]
+
+    quality = assess(rows, plans_by_builder=PLANS_BY_BUILDER, attributions={})["p1"]
+
+    assert (quality.builder, quality.builder_tier) == ("Highland Homes", INFERRED)
+
+
+def test_assess_reads_the_researched_roster_from_disk_and_it_wins():
+    """The one input `assess` defaults to a file, and the reason it does.
+
+    The fixture map above claims GRANTLEY is a Highland plan. It is a Drees plan, which is
+    what the roster in `data/builder-attribution.yaml` records, and the roster is what a
+    caller who forgot to think about builders gets. A caller cannot lose the researched
+    truth by handing in a worse map.
+    """
     rows = [_row("p1", "GRANTLEY Plan, Walsh Ranch 70'", price=824_200, sqft=4121, baths=5.0)]
 
     quality = assess(rows, plans_by_builder=PLANS_BY_BUILDER)["p1"]
 
-    assert (quality.builder, quality.builder_tier) == ("Highland Homes", INFERRED)
+    assert quality.builder == "Drees Homes"
 
 
 # -- the record as a whole --------------------------------------------------------------
@@ -333,3 +353,121 @@ def test_corrections_can_be_supplied_rather_than_read_from_disk():
 
 def test_a_row_with_no_identity_is_skipped_rather_than_keyed_on_nothing():
     assert assess([_row(None, "1820 Crested Ridge Rd")]) == {}
+
+
+# -- (e) the researched roster ----------------------------------------------------------
+#
+# The file these prove is the one thing in this repository that was already lost once and
+# recovered by luck (docs/PORTING-THE-REPORTS.md, lesson 4). The tests are therefore about
+# the data as much as about the code: a roster that quietly loses half its plan sheets in a
+# careless edit would otherwise be discovered by a reader of a published page.
+
+AMBIGUOUS_SPEC = "461741661"  # 14217 Fountainhead Cir — Perry Homes or Britton Homes
+RESEARCHED_PLAN = "Plan 216 Plan, Walsh"  # a "Plan NNNN" name: Highland, not Perry
+RESEARCHED_THE_PLAN = "The Bradley Plan, Walsh"  # a "The <name>" name: Village, not GFO
+
+
+def test_the_whole_walsh_roster_round_trips_out_of_the_file():
+    """Sixty-eight plan sheets and forty spec homes, and every entry says where it came from."""
+    roster = builder_attributions()
+    plans = {k: v for k, v in roster.items() if not k.isdigit()}
+    specs = {k: v for k, v in roster.items() if k.isdigit()}
+
+    assert len(plans) == 68 and len(specs) == 40
+    for key, entry in roster.items():
+        assert entry["source"] and entry["verified_on"], f"{key} carries no provenance"
+        assert entry["basis"] in ("description", "plan-match", "ambiguous", "no-evidence")
+
+    by_builder = Counter(e["builder"] for e in plans.values())
+    assert by_builder == {
+        "David Weekley Homes": 20,
+        "Drees Homes": 18,
+        "Highland Homes": 12,
+        "Village Homes": 10,
+        "GFO Home": 8,
+    }
+
+
+def test_the_ambiguous_home_loads_as_ambiguous_and_stays_that_way():
+    """The entry whose whole purpose is to stop someone re-researching it into certainty."""
+    entry = builder_attributions()[AMBIGUOUS_SPEC]
+
+    assert entry["builder"] is None
+    assert entry["candidates"] == ["Perry Homes", "Britton Homes"]
+
+    row = _row(AMBIGUOUS_SPEC, entry["address"], sqft=2713)
+    # Both the module's own footage heuristic and the roster are consulted; the roster's
+    # "two builders fit" wins, because it is the stronger statement about the evidence.
+    assert attribute_builder(row, PLANS_BY_BUILDER, builder_attributions()) == (
+        None,
+        UNRESOLVED,
+    )
+
+
+@pytest.mark.parametrize(
+    "address, builder, wrong_guess",
+    [
+        (RESEARCHED_PLAN, "Highland Homes", "Perry Homes"),
+        (RESEARCHED_THE_PLAN, "Village Homes", "GFO Home"),
+    ],
+)
+def test_the_two_heuristic_failures_now_resolve_from_data(address, builder, wrong_guess):
+    """The exact two shapes the original's heuristics got confidently wrong.
+
+    "Plan 1234" read as Perry Homes when it is Highland; "The <name>" read as GFO Home when
+    it is Village. Between them they misassigned 22 of 68 plan sheets. From data they resolve
+    correctly, and with the file taken away they resolve to *nothing* — never to the wrong
+    builder, which is the property that matters.
+    """
+    row = _row("x1", address, sqft=3000)
+
+    assert attribute_builder(row, {}, builder_attributions()) == (builder, RESEARCHED)
+    assert attribute_builder(row, {}, {}) == (None, UNRESOLVED)
+    assert attribute_builder(row, {}, {})[0] != wrong_guess
+
+
+def test_a_plan_match_entry_earns_the_matching_tier_and_not_the_strongest_one():
+    """GRANTLEY was attributed by matching a plan sheet, not by anyone naming Drees.
+
+    So it comes back INFERRED. A file of researched entries is not a file of certainties,
+    and flattening the two would be exactly the "guess dressed as a fact" this module exists
+    to refuse.
+    """
+    row = _row("p1", "GRANTLEY Plan, Walsh Ranch 70'", sqft=4121)
+
+    assert attribute_builder(row, {}, builder_attributions()) == ("Drees Homes", INFERRED)
+
+
+def test_an_entry_the_feed_no_longer_agrees_with_is_stale_and_is_not_applied():
+    """A plan renamed under an entry's key is a re-verify, not a builder to trust."""
+    attributions = {
+        "Plan 216 Plan, Walsh": {
+            "builder": "Highland Homes",
+            "basis": "description",
+            "source": "the listing's own description names the builder",
+            "verified_on": "2026-08-21",
+            "plan_name": "Plan 216",
+            "community": "Walsh 60s",  # the feed now files it under "Walsh"
+        }
+    }
+    row = _row("x1", "Plan 216 Plan, Walsh", sqft=3000)
+
+    assert attribute_builder(row, {}, attributions) == (None, UNRESOLVED)
+
+
+def test_a_home_the_roster_looked_at_and_found_nothing_on_still_gets_the_heuristics():
+    """"Nobody wrote a description" is not "the evidence conflicts", so matching may run."""
+    attributions = {
+        "s1": {
+            "builder": None,
+            "basis": "no-evidence",
+            "source": "the listing carries no description text at all",
+            "verified_on": "2026-08-21",
+        }
+    }
+    row = _row("s1", "1820 Crested Ridge Rd, Aledo, TX 76008", sqft=2713)
+
+    assert attribute_builder(row, PLANS_BY_BUILDER, attributions) == (
+        "David Weekley Homes",
+        INFERRED,
+    )
