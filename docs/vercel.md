@@ -103,10 +103,10 @@ fails, correctly. With `SITE_BASE_URL` unset the check is skipped with a loud `N
 line on stderr rather than quietly: a pipeline whose silence is indistinguishable from success
 will eventually be silent.
 
-### Three deploy targets, all three declared
+### Four deploy targets, all four declared
 
 The original's post-mortem item 8 was "three deploy targets accreted — hence the manifest".
-This project has three too. The difference is that each one declares what it publishes, in a
+This project has four. The difference is that each one declares what it publishes, in a
 file of the same shape, checkable by the same script:
 
 | Target | Manifest | What it is | Republish with |
@@ -114,6 +114,7 @@ file of the same shape, checkable by the same script:
 | the reports site | `site-manifest.yaml` | the watch's pages, private behind `SITE_PASSWORD` plus two public pages | `scripts/deploy.sh` |
 | the talk deck | `site-talk/publish-manifest.yaml` | 31 slides, its own project (it ships an image asset the reports copier would refuse) | `npx vercel deploy --prod --yes --cwd site-talk` |
 | the agent ledger | `annex/agent-finder/publish-manifest.yaml` | the annex's luxury listing-agent outreach page, its own project | `scripts/publish_ledger.sh` |
+| the Crockett shortlist | `publish/crockett-75835/publish-manifest.yaml` | ZIP 75835 screened to 4+ beds and 3,000+ sq ft, its own project, no auth gate anywhere in it | `scripts/publish_crockett.sh` |
 
 The deck and the ledger stay separate projects rather than becoming manifest entries because
 `scripts/build_site.py` accepts exactly one shape of path — `reports/*.html` under the repository
@@ -126,6 +127,14 @@ each. `tests/test_verify_deploy.py` fails if a manifest exists that this table d
 `scripts/publish_ledger.sh` builds the annex report, renders it through `verify_page.py` before
 anything is uploaded, stages exactly that one file with its own `vercel.json`, deploys, and — with
 `LEDGER_BASE_URL` set — fetches it as a visitor.
+
+`scripts/publish_crockett.sh` does the same for the Crockett 75835 shortlist, against
+`CROCKETT_BASE_URL`. It spends no API quota: the rebuild is `map --public`, a pure read over what
+the database already holds, so republishing after a template change or a change to the brief is
+free. Refreshing the underlying data is a separate, deliberate act — `sweep --watch crockett-75835`
+and its `-sold` companion first, then this. That page is a public target with no middleware
+deployed alongside it at all, which is a stronger guarantee than being the unlocked page inside a
+project whose default is a password.
 
 ### The pages this project publishes
 

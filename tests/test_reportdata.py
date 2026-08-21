@@ -208,7 +208,17 @@ def test_an_empty_database_is_an_honest_empty_payload(sessions):
 
     assert payload["sweep_ts"] is None
     assert payload["listings"] == []
-    assert payload["counts"] == {"total": 0}
+    assert payload["counts"] == {"total": 0, "considered": 0, "screened_out": 0}
+    # A watch with no brief still publishes the block, saying so — "every home in the
+    # circle" is an answer, and an absent key would leave a reader inferring it.
+    assert payload["criteria"] == {
+        "declared": False,
+        "describe": [],
+        "considered": 0,
+        "kept": 0,
+        "dropped": 0,
+        "reasons": [],
+    }
     assert payload["medians"] == {
         "price": None,
         "price_per_sqft": None,
@@ -248,9 +258,17 @@ def test_the_payload_snapshots_cleanly_for_a_small_known_market(sessions):
             "radius_miles": 2.0,
             "listing_status": "for_sale",
         },
+        "criteria": {
+            "declared": False,
+            "describe": [],
+            "considered": 1,
+            "kept": 1,
+            "dropped": 0,
+            "reasons": [],
+        },
         "generated_ts": GENERATED,
         "sweep_ts": T1,
-        "counts": {"total": 1},
+        "counts": {"total": 1, "considered": 1, "screened_out": 0},
         "medians": {
             "price": 674_900.0,
             "price_per_sqft": 674_900.0 / 3012,

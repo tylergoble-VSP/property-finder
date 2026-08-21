@@ -47,6 +47,7 @@ from sqlalchemy.orm import Session
 from propertyfinder.baseline import compute_sold_baseline
 from propertyfinder.config import Watch, WatchConfig
 from propertyfinder.costmodel import FinanceAssumptions, monthly_cost
+from propertyfinder.criteria import screen
 from propertyfinder.dataquality import apply_corrections, assess
 from propertyfinder.newcon import (
     compute_plan_baseline,
@@ -97,11 +98,19 @@ def build_map_payload(
     corrected = [apply_corrections(r, quality.get(r["zpid"])) for r in active]
 
     plan_sheets = [r for r in corrected if is_plan_sheet(r)]
-    homes = [
+    candidates = [
         r
         for r in corrected
         if not is_plan_sheet(r) and not _is_duplicate(quality.get(r["zpid"]))
     ]
+
+    # The buyer's brief, applied here and nowhere upstream. Everything below this line —
+    # the cards, the counts, the medians, the curve, the map itself — is therefore about
+    # the shortlist and only the shortlist, while `solds` stays deliberately unscreened:
+    # a hedonic model controls for size and bedrooms, so narrowing its comps to the
+    # shortlist's own shape would starve the fit of the range it needs to measure them.
+    screening = screen(candidates, watch.criteria)
+    homes = screening.kept
     deals = _resale_cards(homes, solds, model, cuts)
     plan_baseline = compute_plan_baseline(session, watch.name)
     specs = (
@@ -131,10 +140,16 @@ def build_map_payload(
             "subdivision": watch.subdivision,
             "sold_watch": sold_watch,
         },
+        "criteria": screening.as_payload(),
         "generated_ts": generated_ts,
         "sweep_ts": sweep_ts,
         "counts": {
             "active": len(listings),
+            # What the circle held before the brief was applied. `active` is the shortlist;
+            # this is the market it was drawn from, so the page can state one as a fraction
+            # of the other instead of quoting a number with nothing behind it.
+            "considered": screening.considered,
+            "screened_out": screening.n_dropped,
             "scored": len(scored),
             "great_or_good": sum(1 for d in scored if d["verdict"] in ("GREAT", "GOOD")),
             "underpriced": sum(

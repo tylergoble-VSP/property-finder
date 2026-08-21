@@ -156,17 +156,20 @@ def test_a_manifest_publishing_nothing_verifies_nothing(tmp_path, capsys):
     assert "nothing to verify" in capsys.readouterr().out
 
 
-# -- the three deploy targets, each declared ---------------------------------------------
+# -- the deploy targets, each declared ----------------------------------------------------
 #
-# The original's post-mortem item 8 is "three deploy targets accreted", and this project has
-# three of them too. The difference the port is paying for is that each one is declared, in a
-# manifest of the same shape, checkable by the same script. An undeclared target is the
-# problem; a declared one is a fact.
+# The original's post-mortem item 8 is "three deploy targets accreted", and this project keeps
+# growing them too — a fourth arrived with the Crockett 75835 shortlist. The difference the
+# port is paying for is that each one is declared, in a manifest of the same shape, checkable
+# by the same script, and named in a table a person reads. An undeclared target is the
+# problem; a declared one is a fact, and adding one costs exactly this tuple plus a row in
+# docs/vercel.md.
 
 DECLARED_MANIFESTS = (
     "site-manifest.yaml",
     "site-talk/publish-manifest.yaml",
     "annex/agent-finder/publish-manifest.yaml",
+    "publish/crockett-75835/publish-manifest.yaml",
 )
 
 

@@ -1,0 +1,30 @@
+# What the Crockett 75835 shortlist publishes, in the shape scripts/verify_deploy.py reads.
+#
+# THE DECISION, WRITTEN DOWN. This page is its own Vercel project, served at `/`, rather than
+# an entry in the root `site-manifest.yaml`. That is the same choice the agent ledger made and
+# it is made for the same two reasons, plus one that is specific to this page:
+#
+#   1. `site-manifest.yaml` builds a site whose other pages are PRIVATE and sit behind
+#      `site/middleware.js` and a shared `SITE_PASSWORD`. This page was asked for as a link
+#      somebody can open with no login at all, and the surest way to guarantee that is for it
+#      to live where no auth gate is deployed in the first place — rather than to be the one
+#      carve-out inside a project whose default is a password.
+#   2. It is how every published report in this repository is actually served today:
+#      walsh-deal-map and walsh-new-construction are each their own project answering at `/`,
+#      not paths under one site (verified against the live URLs on 2026-08-21).
+#   3. One page, one URL, one thing to check. `scripts/publish_crockett.sh` builds it, renders
+#      it before uploading, stages exactly this one file, deploys, and fetches it back as a
+#      visitor.
+#
+# The cost of that choice is the original's post-mortem item 8 — deploy targets that "accreted"
+# until nobody could list them — so it is paid the same way the other three are: a manifest of
+# this shape, a row in docs/vercel.md, and a place in tests/test_verify_deploy.py's
+# DECLARED_MANIFESTS. An undeclared target is the problem; a declared one is a fact.
+#
+# `visibility: public` is the truth about this page rather than a wish. It is built by
+# `map --public`, which replaces the watch's finance block with the model's own market-neutral
+# assumptions, and `tests/test_public_pages.py` audits the embedded payload of every entry
+# marked public — including this one — for anything beyond a market assumption.
+- source: reports/crockett-75835-map-public.html
+  dest: index.html
+  visibility: public
