@@ -1,0 +1,1385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walsh new construction — builder and floor-plan report</title>
+<meta name="description" content="Every builder, every floor plan and every move-in-ready home for sale in the Walsh master-planned community — priced, ranked and linked from a live listing sweep.">
+
+<!--
+  Social metadata is absolute on purpose. A relative og:url passes every local check and
+  then silently produces no link preview at all, which is a failure only visible by
+  fetching the deployed page and reading the response — so scripts/verify_deploy.py checks
+  it there (docs/PORTING-THE-REPORTS.md, lesson 12). The literal host below is this page's
+  production alias, recorded in docs/vercel.md. There is deliberately no og:image: this
+  build publishes one HTML file and nothing else, and a preview image tag pointing at a
+  file that was never uploaded is worse than no tag.
+-->
+<meta property="og:type" content="article">
+<meta property="og:title" content="What new construction in Walsh actually looks like">
+<meta property="og:description" content="Every builder, every floor plan and every move-in-ready home for sale in Walsh — priced, ranked and linked.">
+<meta property="og:url" content="https://walsh-new-construction.vercel.app/walsh-aledo-newcon">
+
+<!--
+  The new-construction buyer report. Everything visual is here; everything factual arrives
+  as one JSON payload from newconreport.py through pagebuild.render, and this file computes
+  no facts of its own. Where a sentence states a number, the number is read from the
+  payload — including inside the curated prose blocks, which carry [[token]] placeholders
+  that fill() substitutes. A sentence in a template does not know the database moved.
+
+  Nothing is fetched at load time except basemap tiles: Leaflet is inlined below out of the
+  vendor folder beside this file.
+-->
+
+<style>{{VENDOR:leaflet-1.9.4.css}}</style>
+<style>
+  /*
+    Theme has three states, not two. An explicit reader choice stamps data-theme="dark" or
+    "light" on the root; the default "system" setting stamps NOTHING, and only
+    prefers-color-scheme separates light from dark there — which is most readers. So the
+    complete light palette is defined on bare :root, redefined under the media query but
+    guarded against an explicit light choice, and redefined again under an explicit dark
+    choice so a toggle wins in both directions (lesson 13).
+  */
+  :root {
+    --page: #fbfaf8;
+    --surface: #ffffff;
+    --surface-2: #f3f1ed;
+    --ink: #15181b;
+    --ink-soft: #4e565c;
+    --muted: #838c92;
+    --border: #e2ded7;
+    --hairline: #ece8e1;
+    --accent: #7a3e12;
+    --accent-soft: #f6ece1;
+    --good: #0b6b2e;
+    --bad: #b3261e;
+    --v-great: #0b6b2e;
+    --v-good: #4a9e63;
+    --v-fair: #c9a13a;
+    --v-over: #b3261e;
+    --v-none: #9aa098;
+    --serif: ui-serif, Georgia, "Times New Roman", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page: #100f0e;
+      --surface: #1a1917;
+      --surface-2: #23211e;
+      --ink: #f4f2ef;
+      --ink-soft: #c6c1b9;
+      --muted: #8d8880;
+      --border: #302d29;
+      --hairline: #26231f;
+      --accent: #e0a06a;
+      --accent-soft: #251b12;
+      --good: #5cc47e;
+      --bad: #e6685f;
+      --v-great: #5cc47e;
+      --v-good: #86cf9b;
+      --v-fair: #d9b45c;
+      --v-over: #e6685f;
+      --v-none: #7d857c;
+    }
+  }
+  :root[data-theme="dark"] {
+    --page: #100f0e;
+    --surface: #1a1917;
+    --surface-2: #23211e;
+    --ink: #f4f2ef;
+    --ink-soft: #c6c1b9;
+    --muted: #8d8880;
+    --border: #302d29;
+    --hairline: #26231f;
+    --accent: #e0a06a;
+    --accent-soft: #251b12;
+    --good: #5cc47e;
+    --bad: #e6685f;
+    --v-great: #5cc47e;
+    --v-good: #86cf9b;
+    --v-fair: #d9b45c;
+    --v-over: #e6685f;
+    --v-none: #7d857c;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { background: var(--page); }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font: 16px/1.6 -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 22px; }
+  a { color: var(--accent); }
+  h1, h2, h3 { font-family: var(--serif); letter-spacing: -.01em; }
+  h1 { font-size: clamp(30px, 5.5vw, 52px); line-height: 1.08; margin: 0 0 14px; }
+  h2 { font-size: clamp(22px, 3vw, 31px); margin: 0 0 8px; }
+  h3 { font-size: 18px; margin: 26px 0 6px; }
+  section { margin: 62px 0; scroll-margin-top: 62px; }
+  .eyebrow {
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; margin: 0 0 10px;
+  }
+  .sec-head { max-width: 74ch; margin-bottom: 26px; }
+  .sec-head p:not(.eyebrow) { color: var(--ink-soft); margin: 8px 0 0; }
+  .dek { font-size: 19px; color: var(--ink-soft); max-width: 66ch; margin: 0 0 16px; }
+  .prov { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .prose { max-width: 68ch; }
+  .prose p { color: var(--ink-soft); }
+  .prose ul { color: var(--ink-soft); padding-left: 20px; }
+  .prose strong, .prose b { color: var(--ink); font-weight: 650; }
+  .cols2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 34px; }
+  .cards3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; }
+
+  header.masthead { padding: 54px 0 20px; border-bottom: 1px solid var(--hairline); }
+  nav.nav {
+    position: sticky; top: 0; z-index: 40; background: var(--page);
+    border-bottom: 1px solid var(--hairline); overflow-x: auto;
+  }
+  nav.nav .nav-in { display: flex; gap: 18px; padding: 11px 22px; white-space: nowrap; }
+  nav.nav a { color: var(--ink-soft); text-decoration: none; font-size: 13.5px; font-weight: 600; }
+  nav.nav a:hover { color: var(--accent); }
+
+  .verdict {
+    background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    border-radius: 10px; padding: 18px 20px; max-width: 82ch;
+  }
+  .verdict .lede { font-family: var(--serif); font-size: 21px; margin: 0 0 8px; }
+  .verdict p { margin: 0; color: var(--ink-soft); }
+
+  .tiles {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+    gap: 12px; margin: 26px 0 0;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 15px;
+  }
+  .tile .v { font-size: 25px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .tile .r {
+    font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; margin-top: 3px;
+  }
+  .tile .n { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+
+  .callout {
+    background: var(--accent-soft); border-radius: 10px; padding: 14px 16px; margin: 18px 0;
+  }
+  .callout .k {
+    font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; margin-bottom: 5px;
+  }
+  .callout p { margin: 0; color: var(--ink-soft); }
+
+  .tblwrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--hairline); }
+  th { background: var(--surface-2); font-weight: 650; font-size: 11.5px;
+       letter-spacing: .05em; text-transform: uppercase; color: var(--ink-soft);
+       position: sticky; top: 0; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: 0; }
+  th.s { cursor: pointer; user-select: none; }
+  th.s.asc::after { content: " ▲"; } th.s.desc::after { content: " ▼"; }
+  .tiny { font-size: 11.5px; color: var(--muted); }
+  .cut { color: var(--good); font-weight: 650; }
+  .rise { color: var(--bad); font-weight: 650; }
+  .pill {
+    display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 10.5px;
+    font-weight: 700; letter-spacing: .04em; background: var(--surface-2); color: var(--ink-soft);
+  }
+
+  #nc-map { height: 520px; border-radius: 12px; border: 1px solid var(--border); z-index: 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 12px 0 0; font-size: 12.5px;
+            color: var(--ink-soft); }
+  .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+                margin-right: 6px; }
+
+  .bcards { display: grid; gap: 16px; }
+  .bcard {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+  .bcard > div { padding: 18px 20px; }
+  .bcard-side { border-left: 1px solid var(--hairline); background: var(--surface-2);
+                border-radius: 0 12px 12px 0; }
+  @media (max-width: 780px) {
+    .bcard { grid-template-columns: 1fr; }
+    .bcard-side { border-left: 0; border-top: 1px solid var(--hairline);
+                  border-radius: 0 0 12px 12px; }
+  }
+  .bhead { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+  .bhead h3 { margin: 0; }
+  .bstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+            gap: 10px; margin-top: 14px; }
+  .bstat .k { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+              color: var(--muted); font-weight: 700; }
+  .bstat .v { font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .bnote { font-size: 13.5px; color: var(--ink-soft); margin: 10px 0 0; }
+  .side-label { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+                color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+  .side-block { margin-bottom: 16px; }
+  .lk { display: block; font-size: 13px; margin: 3px 0; text-decoration: none; }
+  .lk span { color: var(--muted); font-size: 11px; margin-left: 5px; }
+
+  .facets { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+  .facet { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+           padding: 12px 14px; }
+  .facet h4 { margin: 0 0 2px; font-family: var(--serif); font-size: 15px; }
+  .facet .tiny { margin-bottom: 6px; }
+  .facet svg { width: 100%; height: auto; display: block; }
+  figcaption { font-size: 12.5px; color: var(--muted); margin-top: 12px; max-width: 74ch; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 14px;
+             font-size: 12.5px; color: var(--muted); }
+  .filters label { display: flex; gap: 6px; align-items: center; }
+  select, input[type="search"] {
+    border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+    border-radius: 8px; padding: 5px 9px; font: inherit; font-size: 13px;
+  }
+  button.btn {
+    border: 1px solid var(--border); background: var(--surface); color: var(--ink-soft);
+    border-radius: 8px; padding: 5px 11px; font: inherit; font-size: 12.5px; cursor: pointer;
+  }
+
+  .speccards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .spec {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .spec .addr { font-family: var(--serif); font-size: 17px; margin: 0 0 2px; }
+  .spec .money { font-size: 21px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .verdict-chip { font-weight: 700; font-size: 11px; letter-spacing: .05em; padding: 2px 9px;
+                  border-radius: 999px; color: #fff; }
+  .ledger { margin: 12px 0 0; border-top: 1px solid var(--hairline); }
+  .ledger .line { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 7px 0;
+                  border-bottom: 1px solid var(--hairline); font-size: 13px; }
+  .ledger .line .pts { font-variant-numeric: tabular-nums; font-weight: 650; }
+  .ledger .line .why { color: var(--muted); font-size: 12px; grid-column: 1 / -1; margin-top: -3px; }
+
+  footer { border-top: 1px solid var(--hairline); margin-top: 70px; padding: 26px 0 60px;
+           color: var(--muted); font-size: 13px; }
+
+  /*
+    The projector, not the laptop. Twelve of thirty-one slides in the companion deck
+    overflowed at 1280×720 while all thirty-one fit at 1920×1080 — the resolution they were
+    authored at. A height query that tightens vertical rhythm fixed all twelve without
+    touching the full-size design, and the same rule applies to a long report read on a
+    laptop in a sales office (lesson 14).
+  */
+  @media (max-height: 820px) {
+    section { margin: 44px 0; }
+    header.masthead { padding: 34px 0 14px; }
+    h1 { font-size: clamp(26px, 4.4vw, 40px); }
+    .tiles { margin-top: 18px; }
+    #nc-map { height: 400px; }
+    .facet svg { max-height: 190px; }
+  }
+  @media print {
+    nav.nav { display: none; }
+    section { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead"><div class="wrap">
+  <p class="eyebrow" id="nc-eyebrow"></p>
+  <h1>What new construction<br>in Walsh actually looks like</h1>
+  <p class="dek">Every builder, every floor plan and every move-in-ready home for sale in the
+    Walsh master-planned community — priced, ranked and linked, from a live listing sweep
+    cross-checked against each builder's own price sheet.</p>
+  <p class="prov" id="nc-prov"></p>
+</div></header>
+
+<nav class="nav"><div class="nav-in">
+  <a href="#read">The read</a>
+  <a href="#place">The place</a>
+  <a href="#map">Map</a>
+  <a href="#builders">Builders</a>
+  <a href="#warranty">Warranties</a>
+  <a href="#curve">Ask curves</a>
+  <a href="#cuts">Price cuts</a>
+  <a href="#plans">Floor plans</a>
+  <a href="#specs">Ready now</a>
+  <a href="#cost">True cost</a>
+  <a href="#method">Method</a>
+</div></nav>
+
+<main class="wrap">
+
+<section id="read">
+  <div class="sec-head">
+    <p class="eyebrow">The read</p>
+    <h2 id="read-heading"></h2>
+  </div>
+  <div class="verdict">
+    <p class="lede" id="read-lede"></p>
+    <p id="read-body"></p>
+  </div>
+  <div class="tiles" id="read-tiles"></div>
+  <div class="cols2" style="margin-top:38px" id="read-columns"></div>
+</section>
+
+<section id="place">
+  <div class="sec-head">
+    <p class="eyebrow">The place itself</p>
+    <h2 id="place-heading"></h2>
+    <p id="place-lede"></p>
+  </div>
+  <div class="cols2" id="place-columns"></div>
+</section>
+
+<section id="map">
+  <div class="sec-head">
+    <p class="eyebrow">Where they actually are</p>
+    <h2>The map</h2>
+    <p>Every ready-now home and every builder's sales office, placed. Colour is the verdict
+      from the scoring below, so the pattern to look for is clusters — a street where several
+      homes have all gone soft is a section the builder is carrying, and that is where the
+      leverage sits.</p>
+  </div>
+  <div id="nc-map"></div>
+  <div class="legend" id="nc-legend"></div>
+  <p class="tiny" id="nc-mapnote"></p>
+</section>
+
+<section id="builders">
+  <div class="sec-head">
+    <p class="eyebrow">Who is building here</p>
+    <h2>The builder roster</h2>
+    <p>Walsh is not one product. It is several distinct price ladders sold side by side, and the
+      builders barely compete with each other because they are aimed at different buyers. Working
+      out which ladder you are on is most of the decision.</p>
+  </div>
+  <div class="bcards" id="builder-cards"></div>
+
+  <h3 id="offfeed-heading"></h3>
+  <p class="tiny" id="offfeed-lede" style="max-width:70ch"></p>
+  <div class="cards3" id="offfeed-cards"></div>
+
+  <h3 id="custom-heading"></h3>
+  <p class="tiny" id="custom-lede" style="max-width:70ch"></p>
+  <div class="cards3" id="custom-cards"></div>
+</section>
+
+<section id="warranty">
+  <div class="sec-head">
+    <p class="eyebrow">The comparison nobody puts in a brochure</p>
+    <h2>Warranties split the field, and not the way price suggests</h2>
+    <p id="warranty-lede"></p>
+  </div>
+  <div class="tblwrap"><table id="warranty-table"></table></div>
+  <div class="cols2" style="margin-top:30px" id="warranty-columns"></div>
+</section>
+
+<section id="curve">
+  <div class="sec-head">
+    <p class="eyebrow">The money chart</p>
+    <h2>Each builder's ask curve</h2>
+    <p>What a builder charges per square foot as its homes get bigger. Each panel is one
+      builder's published plan sheet; the pale field behind it is every other plan in the
+      community, so you can see where that builder sits against the rest.</p>
+  </div>
+  <figure style="margin:0">
+    <div class="facets" id="curve-facets"></div>
+    <figcaption id="curve-caption"></figcaption>
+  </figure>
+</section>
+
+<section id="cuts">
+  <div class="sec-head">
+    <p class="eyebrow">Negotiating ammunition</p>
+    <h2>The price-cut ledger</h2>
+    <p id="cuts-intro"></p>
+  </div>
+  <div class="tiles" id="cuts-summary" style="margin-bottom:22px"></div>
+  <div class="tblwrap"><table id="cuts-table"></table></div>
+  <p class="tiny" id="cuts-empty" hidden></p>
+</section>
+
+<section id="plans">
+  <div class="sec-head">
+    <p class="eyebrow">The catalog</p>
+    <h2 id="plans-heading"></h2>
+    <p>Every plan links straight to the builder's own floor-plan page, and where a dimensioned
+      PDF or a 3D walkthrough exists that is one click away too. Base prices exclude the lot
+      premium and every option — the real contract is typically well above these numbers.</p>
+  </div>
+  <div class="filters" id="plans-filters"></div>
+  <div class="tblwrap"><table id="plans-table"></table></div>
+</section>
+
+<section id="specs">
+  <div class="sec-head">
+    <p class="eyebrow">Buy it this month</p>
+    <h2 id="specs-heading"></h2>
+    <p>Finished or nearly finished homes at real addresses, scored against the builder's own
+      published ask for a home of that size — never against an estimate, and never against a
+      rent figure. Every score shows its arithmetic.</p>
+  </div>
+  <div class="filters" id="specs-filters"></div>
+  <div class="speccards" id="spec-cards"></div>
+</section>
+
+<section id="cost">
+  <div class="sec-head">
+    <p class="eyebrow">The number nobody quotes you</p>
+    <h2 id="cost-heading"></h2>
+  </div>
+  <div class="cols2">
+    <div class="prose" id="cost-left"></div>
+    <div class="prose" id="cost-right"></div>
+  </div>
+  <h3 id="practical-heading"></h3>
+  <div class="cards3" id="practical-cards"></div>
+</section>
+
+<section id="method">
+  <div class="sec-head">
+    <p class="eyebrow">Method &amp; caveats</p>
+    <h2 id="method-heading"></h2>
+  </div>
+  <div class="cols2" id="method-columns"></div>
+  <div class="cols2" style="margin-top:30px" id="method-columns-2"></div>
+</section>
+
+</main>
+
+<footer><div class="wrap" id="nc-foot"></div></footer>
+
+<script>{{VENDOR:leaflet-1.9.4.js}}</script>
+<script id="nc-payload" type="application/json">/*__PAYLOAD__*/{}</script>
+<script>
+(function () {
+  "use strict";
+  var payload = JSON.parse(document.getElementById("nc-payload").textContent);
+  var M = payload.market;
+  var W = M.window;
+  var C = payload.curated;
+
+  // -- formatting -------------------------------------------------------------------
+  //
+  // Every one of these returns an em dash for an absent value rather than inventing one.
+  // A home the feed never gave a footage has no price per foot, and the page says so.
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined && text !== null) n.textContent = text;
+    return n;
+  }
+  function plain(n) { return n === null || n === undefined ? "—" : Math.round(n).toLocaleString(); }
+  function usd(n) { return n === null || n === undefined ? "—" : "$" + Math.round(n).toLocaleString(); }
+  function usdk(n) {
+    return n === null || n === undefined ? "—" : "$" + Math.round(n / 1000).toLocaleString() + "k";
+  }
+  function pct(n, digits) {
+    return n === null || n === undefined ? "—" : n.toFixed(digits === undefined ? 1 : digits) + "%";
+  }
+  function day(ts) {
+    if (!ts) return "—";
+    return new Date(ts).toLocaleDateString(undefined,
+      { year: "numeric", month: "long", day: "numeric" });
+  }
+  function plural(n, one, many) { return n === 1 ? one : (many || one + "s"); }
+
+  // -- curated prose, with its numbers filled from the payload ----------------------
+  //
+  // A curated block is hand-written HTML that may state a figure the database owns. It
+  // writes [[window_from]] rather than a date, and this is where those become numbers, so
+  // that prose and data cannot disagree (lesson 6). An unknown token is left standing on
+  // purpose: `scripts/verify_page.py` greps the rendered text for "[[" and fails, which is
+  // louder than an empty gap a reader would never notice.
+
+  var F = payload.finance || {};
+  var TOKENS = {
+    n_sweeps: plain(W.n_sweeps),
+    window_from: day(W.window_from),
+    window_to: day(W.window_to),
+    window_days: plain(W.window_days),
+    n_plans: plain(M.n_plans),
+    n_specs: plain(M.n_specs),
+    n_resale: plain(M.n_resale),
+    n_newcon: plain(M.n_plans + M.n_specs),
+    n_bath_corrections: plain(M.n_bath_corrections),
+    n_unresolved: plain(M.n_unresolved_builders),
+    ad_valorem: (F.default_tax_rate === undefined ? 0 : F.default_tax_rate).toFixed(3),
+    default_tax_rate: (F.default_tax_rate === undefined ? 0 : F.default_tax_rate).toFixed(3),
+    mortgage_rate: String(F.mortgage_rate),
+    down_pct: String(F.down_pct),
+    loan_term_years: String(F.loan_term_years),
+    insurance_annual_per_1000: String(F.insurance_annual_per_1000)
+  };
+  function fill(html) {
+    if (!html) return "";
+    return html.replace(/\[\[([a-z0-9_]+)\]\]/g, function (whole, key) {
+      return Object.prototype.hasOwnProperty.call(TOKENS, key) ? TOKENS[key] : whole;
+    });
+  }
+  function prose(host, html) {
+    var box = el("div", "prose");
+    box.innerHTML = fill(html);
+    host.appendChild(box);
+    return box;
+  }
+  function calloutOf(block) {
+    if (!block) return null;
+    var box = el("div", "callout");
+    box.appendChild(el("div", "k", block.heading));
+    var body = el("div");
+    body.innerHTML = fill(block.html);
+    box.appendChild(body);
+    return box;
+  }
+
+  // -- the masthead -----------------------------------------------------------------
+
+  $("nc-eyebrow").textContent =
+    "Property Finder · " + (payload.watch.subdivision || payload.watch.name) + " · " +
+    payload.watch.center_address;
+  $("nc-prov").textContent =
+    "Built " + day(payload.generated_ts) + " from a sweep of " + day(payload.sweep_ts) +
+    " · " + plain(W.n_sweeps) + " " + plural(W.n_sweeps, "sweep") + " observed over " +
+    plain(W.window_days) + " " + plural(W.window_days, "day") + ", " + day(W.window_from) +
+    " to " + day(W.window_to);
+  $("nc-foot").textContent =
+    "Property Finder · " + payload.watch.name + " · asking prices only, in a state that does " +
+    "not disclose sale prices · built " + day(payload.generated_ts);
+
+  // -- the read ---------------------------------------------------------------------
+
+  var cutting = M.n_cuts > 0;
+  $("read-heading").textContent = cutting
+    ? "Builders here are cutting, and the ledger says how hard"
+    : "Nothing on this sheet has moved yet";
+  $("read-lede").textContent = cutting
+    ? plain(M.n_cuts) + " recorded " + plural(M.n_cuts, "cut") + " totalling " +
+      usd(M.total_cut_dollars) + " across " + plain(W.window_days) + " observed " +
+      plural(W.window_days, "day") + "."
+    : "One sweep on record, so nothing here has a before to compare against yet.";
+  $("read-body").textContent = cutting
+    ? plain(M.specs_over_stale_days) + " of the " + plain(M.n_specs) + " standing " +
+      plural(M.n_specs, "home") + " have been listed more than " + plain(M.stale_spec_days) +
+      " days, and the deepest single cut recorded is " + usd(M.deepest_cut_dollars) +
+      ". Every month a finished house stands empty the builder pays interest on it, which is " +
+      "the pressure that makes a spec home negotiable in a way a to-be-built home never is."
+    : "Price movement is measured by comparing each home's first and last observed ask. " +
+      "That needs two sweeps, and history begins today.";
+
+  [
+    ["Builder plan sheets", plain(M.n_plans), "the published price lists"],
+    ["Ready-now homes", plain(M.n_specs), "real addresses, buyable this month"],
+    ["Resale competition", plain(M.n_resale), "homes you bid against"],
+    ["Median ready-now ask", usdk(M.spec_median_price),
+      M.spec_median_ppsf === null ? "—" : usd(M.spec_median_ppsf) + " a square foot"],
+    ["Cut so far", usd(M.total_cut_dollars),
+      plain(M.n_cuts) + " " + plural(M.n_cuts, "home") + " and " + plain(M.n_rises) + " " +
+      plural(M.n_rises, "rise")],
+    ["Past " + plain(M.stale_spec_days) + " days", plain(M.specs_over_stale_days),
+      "where the price is genuinely soft"],
+    ["Months of supply", W.months_supply === null ? "—" : W.months_supply.toFixed(1),
+      W.months_supply === null
+        ? "needs more than one sweep"
+        : plain(W.absorbed) + " absorbed over " + plain(W.window_days) + " days"],
+    ["Standing inventory", plain(W.inventory_start) + " → " + plain(W.inventory_end),
+      "start to end of the observed window"]
+  ].forEach(function (t) {
+    var box = el("div", "tile");
+    box.appendChild(el("div", "v", t[1]));
+    box.appendChild(el("div", "r", t[0]));
+    box.appendChild(el("div", "n", t[2]));
+    $("read-tiles").appendChild(box);
+  });
+
+  (C.leverage.columns || []).forEach(function (col) {
+    var host = el("div");
+    host.appendChild(el("h3", null, col.heading));
+    prose(host, col.html);
+    var callout = calloutOf(col.callout);
+    if (callout) host.appendChild(callout);
+    $("read-columns").appendChild(host);
+  });
+
+  // -- the place --------------------------------------------------------------------
+
+  $("place-heading").textContent = C.place.heading;
+  $("place-lede").textContent = C.place.lede;
+  (C.place.columns || []).forEach(function (col) {
+    var host = el("div");
+    (col.blocks || []).forEach(function (block) {
+      host.appendChild(el("h3", null, block.heading));
+      prose(host, block.html);
+      var callout = calloutOf(block.callout);
+      if (callout) host.appendChild(callout);
+    });
+    $("place-columns").appendChild(host);
+  });
+
+  // -- the map ----------------------------------------------------------------------
+
+  var VERDICT_COLOURS = {
+    GREAT: "var(--v-great)", GOOD: "var(--v-good)",
+    FAIR: "var(--v-fair)", OVERPRICED: "var(--v-over)"
+  };
+  function verdictColour(v) { return VERDICT_COLOURS[v] || "var(--v-none)"; }
+
+  function tileUrl() {
+    // Three states again: an explicit choice on the root wins, and only when there is none
+    // does the system preference decide. A tile layer resolved once at load would be wrong
+    // for a reader who switches theme mid-visit, so this is re-resolved on the change event.
+    var choice = document.documentElement.getAttribute("data-theme");
+    var dark = choice === "dark" ||
+      (choice !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    return "https://{s}.basemaps.cartocdn.com/rastertiles/" +
+      (dark ? "dark_all" : "voyager") + "/{z}/{x}/{y}{r}.png";
+  }
+
+  function popup(row) {
+    var box = el("div");
+    box.appendChild(el("div", "pop-addr", row.kind === "plan" ? row.plan : row.address));
+    box.appendChild(el("div", null,
+      usd(row.price) + (row.sqft === null ? "" : " · " + plain(row.sqft) + " sq ft") +
+      (row.price_per_sqft === null ? "" : " · " + usd(row.price_per_sqft) + " a foot")));
+    box.appendChild(el("div", null, row.kind === "plan"
+      ? row.builder + " · plan sheet, not a buyable home"
+      : row.builder + " · " + (row.verdict
+          ? row.verdict + " · score " + row.score + " · " + row.confidence + " confidence"
+          : "not scored")));
+    if (row.carry) {
+      box.appendChild(el("div", null, usd(row.carry.total) + " a month, all in"));
+    }
+    if (row.link) box.appendChild(link(row.link, "Open the listing"));
+    return box;
+  }
+
+  function renderMap() {
+    var placeable = payload.specs.concat(payload.plans).filter(function (r) {
+      return r.lat !== null && r.lon !== null;
+    });
+    var map = L.map("nc-map", { scrollWheelZoom: false })
+      .setView([payload.watch.lat, payload.watch.lon], 13);
+    var tiles = L.tileLayer(tileUrl(),
+      { maxZoom: 19, attribution: "&copy; OpenStreetMap, &copy; CARTO" }).addTo(map);
+    var media = window.matchMedia("(prefers-color-scheme: dark)");
+    var relisten = function () { tiles.setUrl(tileUrl()); };
+    if (media.addEventListener) media.addEventListener("change", relisten);
+    else if (media.addListener) media.addListener(relisten);
+
+    var placed = [];
+    placeable.forEach(function (row) {
+      var isPlan = row.kind === "plan";
+      var marker = L.circleMarker([row.lat, row.lon], {
+        radius: isPlan ? 5 : 8,
+        weight: 1.5,
+        color: "#fff",
+        fillColor: isPlan ? "var(--muted)" : verdictColour(row.verdict),
+        fillOpacity: isPlan ? 0.7 : 0.95
+      }).addTo(map);
+      marker.bindPopup(popup(row));
+      placed.push([row.lat, row.lon]);
+    });
+    if (placed.length) map.fitBounds(placed, { padding: [30, 30], maxZoom: 15 });
+
+    ["GREAT", "GOOD", "FAIR", "OVERPRICED"].forEach(function (v) {
+      var item = el("span");
+      var sw = el("span", "sw");
+      sw.style.background = verdictColour(v);
+      item.appendChild(sw);
+      item.appendChild(document.createTextNode(v.charAt(0) + v.slice(1).toLowerCase()));
+      $("nc-legend").appendChild(item);
+    });
+    var offices = el("span");
+    var osw = el("span", "sw");
+    osw.style.background = "var(--muted)";
+    offices.appendChild(osw);
+    offices.appendChild(document.createTextNode("Builder plan sheet (sales office)"));
+    $("nc-legend").appendChild(offices);
+
+    $("nc-mapnote").textContent =
+      plain(placeable.length) + " of " + plain(payload.specs.length + payload.plans.length) +
+      " rows carry coordinates and are placed. Plan sheets share one point per sales office, " +
+      "so a cluster of small grey dots is one office and not a street of houses.";
+  }
+  renderMap();
+
+  // -- the builder roster -----------------------------------------------------------
+
+  payload.builders.forEach(function (b) {
+    var info = (C.builder_profiles.profiles || {})[b.builder] || {};
+    var card = el("div", "bcard");
+    var main = el("div", "bcard-main");
+
+    var head = el("div", "bhead");
+    head.appendChild(el("h3", null, b.builder));
+    b.communities.forEach(function (community) {
+      head.appendChild(el("span", "pill", community));
+    });
+    main.appendChild(head);
+
+    if (info.warning) {
+      var warn = el("div", "callout");
+      warn.appendChild(el("div", "k", "Before you sign anything"));
+      var wbody = el("div");
+      wbody.innerHTML = fill(info.warning);
+      warn.appendChild(wbody);
+      main.appendChild(warn);
+    }
+
+    var note = el("p", "bnote");
+    note.innerHTML = fill(
+      info.note ||
+      (b.unresolved ? C.builder_profiles.unresolved_note : "Not yet researched.")
+    );
+    main.appendChild(note);
+
+    if (info.highlight) {
+      var hi = el("p", "bnote");
+      hi.innerHTML = "<strong>Worth knowing.</strong> " + fill(info.highlight);
+      main.appendChild(hi);
+    }
+
+    var stats = el("div", "bstats");
+    [
+      ["Plans", b.n_plans || "—"],
+      ["Ready now", b.n_specs || "—"],
+      ["Base price band",
+        b.plan_price_min === null ? "—" : usdk(b.plan_price_min) + " – " + usdk(b.plan_price_max)],
+      ["Plan $/sf", b.plan_ppsf === null ? "—" : usd(b.plan_ppsf)],
+      ["Ready-now $/sf", b.spec_ppsf === null ? "—" : usd(b.spec_ppsf)],
+      ["Median days listed", b.spec_median_dom === null ? "—" : plain(b.spec_median_dom)]
+    ].forEach(function (s) {
+      var box = el("div", "bstat");
+      box.appendChild(el("div", "k", s[0]));
+      box.appendChild(el("div", "v", String(s[1])));
+      stats.appendChild(box);
+    });
+    main.appendChild(stats);
+
+    var behaviour = el("p", "bnote");
+    behaviour.innerHTML = "<strong>Price behaviour.</strong> " + (b.n_cut
+      ? plain(b.n_cut) + " recorded " + plural(b.n_cut, "cut") + " totalling " +
+        usd(b.total_cut_dollars) + ", median " + pct(b.median_cut_pct) + " off the earlier ask."
+      : "No cut recorded in the observed window — this builder is holding its sheet.");
+    main.appendChild(behaviour);
+
+    var side = el("div", "bcard-side");
+    var links = el("div", "side-block");
+    links.appendChild(el("div", "side-label", "Go straight there"));
+    if ((info.links || []).length) {
+      info.links.forEach(function (l) {
+        var a = el("a", "lk", l.label);
+        a.href = l.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.appendChild(el("span", null, l.kind || "open"));
+        links.appendChild(a);
+      });
+    } else {
+      links.appendChild(el("p", "bnote", "No builder site identified."));
+    }
+    side.appendChild(links);
+
+    [["Sales office", info.contact], ["On the table now", info.incentives],
+     ["Association dues", info.hoa]].forEach(function (pair) {
+      if (!pair[1]) return;
+      var block = el("div", "side-block");
+      block.appendChild(el("div", "side-label", pair[0]));
+      var body = el("p", "bnote");
+      body.innerHTML = fill(pair[1]);
+      block.appendChild(body);
+      side.appendChild(block);
+    });
+
+    card.appendChild(main);
+    card.appendChild(side);
+    $("builder-cards").appendChild(card);
+  });
+
+  function builderCards(host, block) {
+    (block.builders || []).forEach(function (b) {
+      var card = el("div", "spec");
+      var title = el("p", "addr");
+      if (b.url) {
+        var a = el("a", null, b.name);
+        a.href = b.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        title.appendChild(a);
+      } else {
+        title.textContent = b.name;
+      }
+      card.appendChild(title);
+      var body = el("p", "bnote");
+      body.innerHTML = fill(b.what || b.detail || "");
+      card.appendChild(body);
+      if (b.note) {
+        var n = el("p", "tiny");
+        n.innerHTML = fill(b.note);
+        card.appendChild(n);
+      }
+      host.appendChild(card);
+    });
+  }
+  $("offfeed-heading").textContent = C.off_feed_builders.heading;
+  $("offfeed-lede").textContent = C.off_feed_builders.lede;
+  builderCards($("offfeed-cards"), C.off_feed_builders);
+  $("custom-heading").textContent = C.custom_builders.heading;
+  $("custom-lede").textContent = C.custom_builders.lede;
+  builderCards($("custom-cards"), C.custom_builders);
+
+  // -- warranties -------------------------------------------------------------------
+
+  $("warranty-lede").textContent = C.warranty.lede;
+  table($("warranty-table"),
+    [["Builder", ""], ["Mechanical / workmanship", ""], ["Structural", ""]],
+    C.warranty.rows,
+    function (r) { return [r.builder, r.mechanical, r.structural]; });
+  (C.warranty.columns || []).forEach(function (col) {
+    var host = el("div");
+    host.appendChild(el("h3", null, col.heading));
+    prose(host, col.html);
+    $("warranty-columns").appendChild(host);
+  });
+
+  // -- the ask curves ---------------------------------------------------------------
+
+  function askCurves() {
+    var all = payload.askcurve.points;
+    if (!all.length) {
+      $("curve-caption").textContent =
+        "No builder in this watch publishes a plan sheet, so there is no ask curve to draw.";
+      return;
+    }
+    var byBuilder = {};
+    payload.plans.forEach(function (p) {
+      if (p.sqft === null || p.price_per_sqft === null) return;
+      (byBuilder[p.builder] = byBuilder[p.builder] || []).push(p);
+    });
+    var xs = all.map(function (p) { return p.sqft; });
+    var ys = all.map(function (p) { return p.ppsf; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var pad = 26, w = 300, h = 190;
+    function X(v) { return pad + (x1 === x0 ? 0.5 : (v - x0) / (x1 - x0)) * (w - pad * 2); }
+    function Y(v) { return h - pad - (y1 === y0 ? 0.5 : (v - y0) / (y1 - y0)) * (h - pad * 2); }
+
+    Object.keys(byBuilder).sort().forEach(function (builder) {
+      var mine = byBuilder[builder];
+      var facet = el("div", "facet");
+      facet.appendChild(el("h4", null, builder));
+      facet.appendChild(el("p", "tiny",
+        plain(mine.length) + " " + plural(mine.length, "plan") + " · " +
+        usd(median(mine.map(function (p) { return p.price_per_sqft; }))) + " a foot, median"));
+
+      var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label",
+        builder + " plan prices per square foot against plan size");
+      function dot(p, colour, r, opacity) {
+        var c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        c.setAttribute("cx", X(p.sqft).toFixed(1));
+        c.setAttribute("cy", Y(p.ppsf === undefined ? p.price_per_sqft : p.ppsf).toFixed(1));
+        c.setAttribute("r", r);
+        c.setAttribute("fill", colour);
+        c.setAttribute("opacity", opacity);
+        var t = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        t.textContent = (p.plan || p.address || "") + " · " + plain(p.sqft) + " sq ft · " +
+          usd(p.ppsf === undefined ? p.price_per_sqft : p.ppsf) + " a foot";
+        c.appendChild(t);
+        return c;
+      }
+      all.forEach(function (p) { svg.appendChild(dot(p, "currentColor", 2.4, 0.16)); });
+      mine.forEach(function (p) { svg.appendChild(dot(p, "var(--accent)", 3.6, 1)); });
+
+      [[x0, "left"], [x1, "right"]].forEach(function (pair) {
+        var t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("x", X(pair[0]));
+        t.setAttribute("y", h - 6);
+        t.setAttribute("font-size", "9");
+        t.setAttribute("fill", "currentColor");
+        t.setAttribute("opacity", "0.55");
+        t.setAttribute("text-anchor", pair[1] === "left" ? "start" : "end");
+        t.textContent = plain(pair[0]) + " sf";
+        svg.appendChild(t);
+      });
+      [[y1, pad], [y0, h - pad]].forEach(function (pair) {
+        var t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("x", 2);
+        t.setAttribute("y", pair[1]);
+        t.setAttribute("font-size", "9");
+        t.setAttribute("fill", "currentColor");
+        t.setAttribute("opacity", "0.55");
+        t.textContent = usd(pair[0]);
+        svg.appendChild(t);
+      });
+      facet.appendChild(svg);
+      $("curve-facets").appendChild(facet);
+    });
+
+    $("curve-caption").textContent =
+      "Each panel: one builder's plan sheet in colour against every plan in the community in " +
+      "grey. " + plain(payload.askcurve.n_plans) + " " + plural(payload.askcurve.n_plans, "plan") +
+      " across " + plain(payload.askcurve.communities.length) + " " +
+      plural(payload.askcurve.communities.length, "price list") + ". Price per foot falls as " +
+      "plans grow, which is why a ready-now home is compared against plans of its own size " +
+      "rather than against the community median.";
+  }
+  function median(values) {
+    var present = values.filter(function (v) { return v !== null && v !== undefined; })
+      .sort(function (a, b) { return a - b; });
+    if (!present.length) return null;
+    var mid = Math.floor(present.length / 2);
+    return present.length % 2 ? present[mid] : (present[mid - 1] + present[mid]) / 2;
+  }
+  askCurves();
+
+  // -- the price-cut ledger ---------------------------------------------------------
+
+  var moved = payload.plans.concat(payload.specs, payload.resale).filter(function (r) {
+    return r.price_cut_dollars !== null && r.price_cut_dollars !== 0;
+  }).sort(function (a, b) { return b.price_cut_dollars - a.price_cut_dollars; });
+
+  $("cuts-intro").textContent = W.n_sweeps < 2
+    ? "A cut is the difference between the first ask this tool recorded and the latest one, " +
+      "so it takes two sweeps to see one. History begins today."
+    : "Every ask that has moved since this tool first saw it, cumulatively — two cuts and a " +
+      "rise net out to one number, which is the honest answer to how a home has moved. A cut " +
+      "that happened before " + day(W.window_from) + " is invisible here, so the total is a " +
+      "floor and not a total.";
+
+  [["Homes cut", plain(M.n_cuts)], ["Total taken off", usd(M.total_cut_dollars)],
+   ["Deepest single cut", usd(M.deepest_cut_dollars)], ["Asks raised", plain(M.n_rises)]
+  ].forEach(function (t) {
+    var box = el("div", "tile");
+    box.appendChild(el("div", "v", t[1]));
+    box.appendChild(el("div", "r", t[0]));
+    $("cuts-summary").appendChild(box);
+  });
+
+  if (!moved.length) {
+    $("cuts-table").hidden = true;
+    $("cuts-empty").hidden = false;
+    $("cuts-empty").textContent = "Nothing has moved yet.";
+  } else {
+    table($("cuts-table"),
+      [["Home", ""], ["Builder", ""], ["First ask", "n"], ["Now", "n"], ["Off", "n"],
+       ["", "n"], ["Days listed", "n"]],
+      moved,
+      function (r) {
+        return [
+          r.address, r.builder, usd(r.first_price), usd(r.price),
+          usd(Math.abs(r.price_cut_dollars)), pct(Math.abs(r.price_cut_pct)),
+          plain(r.days_on_market)
+        ];
+      },
+      function (row, r) {
+        row.cells[4].className = "n " + (r.price_cut_dollars > 0 ? "cut" : "rise");
+        row.cells[5].className = "n " + (r.price_cut_dollars > 0 ? "cut" : "rise");
+      });
+  }
+
+  // -- the floor plans --------------------------------------------------------------
+
+  $("plans-heading").textContent =
+    "All " + plain(M.n_plans) + " " + plural(M.n_plans, "plan") + " on sale here";
+
+  var planRows = payload.plans.map(function (p) {
+    var detail = (C.plan_details.plans || {})[p.plan] ||
+      (C.plan_details.plans || {})[titleCase(p.plan)] || {};
+    return {
+      row: p,
+      stories: detail.stories || null,
+      garage: detail.garage || null,
+      primary: detail.primary || null,
+      rooms: detail.rooms || null,
+      url: detail.url || p.link || null,
+      pdf: detail.pdf || null,
+      tour: detail.tour || null
+    };
+  });
+  function titleCase(s) {
+    if (!s) return s;
+    return s.toLowerCase().replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); });
+  }
+
+  var planTable = table($("plans-table"),
+    [["Plan", "s"], ["See the floor plan", ""], ["Builder", "s"], ["Bd", "s n"], ["Ba", "s n"],
+     ["Sq ft", "s n"], ["Base price", "s n"], ["$/sf", "s n"], ["Carry /mo", "s n"],
+     ["Storeys", ""], ["Garage", ""], ["Primary", ""]],
+    planRows,
+    function (d) {
+      var p = d.row;
+      var links = [];
+      if (d.url) links.push(link(d.url, "Plan page"));
+      if (d.pdf) links.push(link(d.pdf, "PDF"));
+      if (d.tour) links.push(link(d.tour, "3D tour"));
+      return [
+        planCell(p, d), links.length ? links : "—", p.builder, plain(p.beds),
+        bathCell(p), sqftCell(p), usd(p.price), usd(p.price_per_sqft),
+        p.carry ? usd(p.carry.total) : "—",
+        d.stories || "—", d.garage || "—", d.primary || "—"
+      ];
+    });
+
+  function link(href, label) {
+    var a = el("a", null, label);
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener";
+    return a;
+  }
+  function planCell(p, d) {
+    var box = el("div");
+    box.appendChild(el("div", null, p.plan || p.address));
+    if (p.community) box.appendChild(el("div", "tiny", p.community));
+    if (d.rooms) box.appendChild(el("div", "tiny", d.rooms));
+    if (p.builder_tier !== "RESEARCHED" && p.builder_tier !== "CONFIRMED") {
+      box.appendChild(el("div", "tiny", "builder " + p.builder_tier.toLowerCase()));
+    }
+    return box;
+  }
+  function bathCell(p) {
+    if (p.baths === null) return "—";
+    if (!p.baths_corrected) return plain(p.baths) === String(p.baths) ? String(p.baths) : String(p.baths);
+    var box = el("div");
+    box.appendChild(document.createTextNode(String(p.baths)));
+    box.appendChild(el("span", "tiny", " (feed said " + String(p.baths_listed) + ")"));
+    return box;
+  }
+  function sqftCell(p) {
+    if (p.sqft === null) return "—";
+    if (p.sqft_max === null || p.sqft_max === undefined) return plain(p.sqft);
+    var box = el("div");
+    box.appendChild(document.createTextNode(plain(p.sqft)));
+    box.appendChild(el("span", "tiny", " – " + plain(p.sqft_max)));
+    return box;
+  }
+  filters($("plans-filters"), planRows, planTable, function (d) {
+    return { builder: d.row.builder, community: d.row.community, beds: d.row.beds,
+             price: d.row.price, text: (d.row.plan || "") + " " + (d.row.address || "") };
+  });
+
+  // -- move-in-ready homes ----------------------------------------------------------
+
+  $("specs-heading").textContent =
+    plain(M.n_specs) + " move-in-ready " + plural(M.n_specs, "home");
+
+  function specCard(row) {
+    var card = el("div", "spec");
+    var head = el("div");
+    var addr = el("p", "addr");
+    addr.appendChild(row.link ? link(row.link, row.address) : document.createTextNode(row.address));
+    head.appendChild(addr);
+    head.appendChild(el("p", "tiny",
+      row.builder + " · " + plain(row.sqft) + " sq ft · " + plain(row.beds) + " bed · " +
+      String(row.baths) + " bath · " + plain(row.days_on_market) + " days listed"));
+    card.appendChild(head);
+
+    var money = el("div", "money", usd(row.price));
+    if (row.price_per_sqft !== null) {
+      money.appendChild(el("span", "tiny", "  " + usd(row.price_per_sqft) + " a foot"));
+    }
+    card.appendChild(money);
+
+    if (row.verdict) {
+      var chip = el("span", "verdict-chip", row.verdict + " · " + row.score);
+      chip.style.background = verdictColour(row.verdict);
+      card.appendChild(chip);
+      card.appendChild(el("span", "tiny",
+        "  " + row.confidence + " confidence · " +
+        (row.comp.basis === "band"
+          ? plain(row.comp.n_in_band) + " plans of comparable size"
+          : "no plan close in size, so the whole price list stood in")));
+    }
+
+    if (row.price_cut_dollars) {
+      card.appendChild(el("p", "bnote",
+        "Down " + usd(row.price_cut_dollars) + " from " + usd(row.first_price) +
+        " since this tool first saw it."));
+    }
+    if (row.carry) {
+      card.appendChild(el("p", "bnote",
+        usd(row.carry.total) + " a month all in — " + usd(row.carry.principal_interest) +
+        " principal and interest, " + usd(row.carry.tax) + " tax, " +
+        usd(row.carry.insurance) + " insurance, " + usd(row.carry.assessment) +
+        " improvement district, " + usd(row.carry.dues) + " dues."));
+    }
+
+    if (row.ledger) {
+      var ledger = el("div", "ledger");
+      row.ledger.forEach(function (line) {
+        var wrap = el("div", "line");
+        wrap.appendChild(el("span", null, line.label));
+        wrap.appendChild(el("span", "pts", (line.points > 0 ? "+" : "") + line.points));
+        wrap.appendChild(el("span", "why", line.detail));
+        ledger.appendChild(wrap);
+      });
+      var total = el("div", "line");
+      total.appendChild(el("span", null, "Score"));
+      total.appendChild(el("span", "pts", String(row.score)));
+      ledger.appendChild(total);
+      card.appendChild(ledger);
+    }
+    return card;
+  }
+
+  var specState = { rows: payload.specs };
+  function drawSpecs(rows) {
+    var host = $("spec-cards");
+    host.textContent = "";
+    if (!rows.length) {
+      host.appendChild(el("p", "tiny", "No ready-now home matches those filters."));
+      return;
+    }
+    rows.forEach(function (row) { host.appendChild(specCard(row)); });
+  }
+  drawSpecs(specState.rows);
+  filters($("specs-filters"), payload.specs, { _draw: drawSpecs }, function (r) {
+    return { builder: r.builder, community: null, beds: r.beds, price: r.price,
+             text: r.address || "" };
+  });
+
+  // -- what it costs to hold --------------------------------------------------------
+
+  $("cost-heading").textContent = C.pid.heading;
+  var left = $("cost-left");
+  prose(left, C.pid.html);
+  var pidCallout = calloutOf(C.pid.callout);
+  if (pidCallout) left.appendChild(pidCallout);
+  var pidWrap = el("div", "tblwrap");
+  var pidTable = el("table");
+  pidWrap.appendChild(pidTable);
+  left.appendChild(pidWrap);
+  table(pidTable,
+    [["Improvement area", ""], ["Lot", ""], ["Principal", "n"], ["Per year", "n"],
+     ["Per month", "n"], ["Total", "n"], ["Through", ""]],
+    C.pid.rows,
+    function (r) {
+      return [r.area, r.lot, usd(r.principal), usd(r.annual), usd(r.annual / 12),
+              r.total === null ? "—" : usd(r.total), r.through];
+    });
+  left.appendChild(el("p", "tiny", C.pid.provenance.source));
+  prose(left, C.pid.after_table_html);
+
+  var right = $("cost-right");
+  right.appendChild(el("h3", null, C.carry.heading));
+  prose(right, C.carry.assumptions_html);
+  right.appendChild(el("h3", null, C.carry.dues_heading));
+  prose(right, C.carry.dues_lede);
+  var duesWrap = el("div", "tblwrap");
+  var duesTable = el("table");
+  duesWrap.appendChild(duesTable);
+  right.appendChild(duesWrap);
+  table(duesTable,
+    [["Lot type", ""], ["Per month", "n"], ["Per year", "n"]],
+    C.carry.dues,
+    function (r) {
+      var yearly = typeof r.monthly === "number" ? usd(r.monthly * 12) : "—";
+      var monthly = typeof r.monthly === "number" ? usd(r.monthly) : "$" + r.monthly;
+      return [r.lot, monthly, yearly];
+    });
+  var carryCallout = calloutOf(C.carry.callout);
+  if (carryCallout) right.appendChild(carryCallout);
+
+  $("practical-heading").textContent = C.practical.heading;
+  (C.practical.items || []).forEach(function (item) {
+    var card = el("div", "spec");
+    card.appendChild(el("p", "addr", item.heading));
+    var body = el("p", "bnote");
+    body.innerHTML = fill(item.html);
+    card.appendChild(body);
+    $("practical-cards").appendChild(card);
+  });
+
+  // -- method -----------------------------------------------------------------------
+
+  $("method-heading").textContent = C.method.heading;
+  (C.method.columns || []).forEach(function (col) {
+    var host = el("div");
+    host.appendChild(el("h3", null, col.heading));
+    prose(host, col.html);
+    $("method-columns").appendChild(host);
+  });
+
+  var defects = el("div");
+  defects.appendChild(el("h3", null, C.method.feed_defects.heading));
+  prose(defects, C.method.feed_defects.html);
+  $("method-columns-2").appendChild(defects);
+
+  var caveats = el("div");
+  caveats.appendChild(el("h3", null, C.method.caveats.heading));
+  var list = el("ul");
+  (C.method.caveats.items || []).forEach(function (item) {
+    var li = el("li");
+    li.innerHTML = fill(item);
+    list.appendChild(li);
+  });
+  var caveatBox = el("div", "prose");
+  caveatBox.appendChild(list);
+  caveats.appendChild(caveatBox);
+  if (M.n_unresolved_builders) {
+    caveats.appendChild(el("p", "tiny",
+      plain(M.n_unresolved_builders) + " standing " + plural(M.n_unresolved_builders, "home") +
+      " on this page " + plural(M.n_unresolved_builders, "has", "have") + " no builder: " +
+      C.builder_profiles.unresolved_note.replace(/<[^>]+>/g, "")));
+  }
+  $("method-columns-2").appendChild(caveats);
+
+  // -- the two generic table helpers -----------------------------------------------
+  //
+  // Declared after their callers on purpose: function declarations hoist, and reading the
+  // page's sections in the order the page shows them beats reading two helpers first.
+
+  function table(host, columns, rows, cells, decorate) {
+    var thead = el("thead");
+    var hrow = el("tr");
+    columns.forEach(function (c, i) {
+      var th = el("th", c[1] || null, c[0]);
+      if ((c[1] || "").indexOf("s") === 0) th.dataset.column = String(i);
+      hrow.appendChild(th);
+    });
+    thead.appendChild(hrow);
+    var tbody = el("tbody");
+    host.textContent = "";
+    host.appendChild(thead);
+    host.appendChild(tbody);
+
+    function draw(list) {
+      tbody.textContent = "";
+      list.forEach(function (r) {
+        var tr = el("tr");
+        cells(r).forEach(function (value, i) {
+          var td = el("td", (columns[i][1] || "").replace("s", "").trim() || null);
+          if (value instanceof Node) td.appendChild(value);
+          else if (Array.isArray(value)) {
+            value.forEach(function (node, n) {
+              if (n) td.appendChild(document.createTextNode(" · "));
+              td.appendChild(node);
+            });
+          } else td.textContent = value === null || value === undefined ? "—" : String(value);
+          tr.appendChild(td);
+        });
+        if (decorate) decorate(tr, r);
+        tbody.appendChild(tr);
+      });
+    }
+    host._draw = draw;
+    draw(rows);
+    return host;
+  }
+
+  function filters(host, rows, target, keyOf) {
+    var keys = rows.map(keyOf);
+    var builders = unique(keys.map(function (k) { return k.builder; }));
+    var communities = unique(keys.map(function (k) { return k.community; }));
+    var beds = unique(keys.map(function (k) { return k.beds; })).sort(function (a, b) {
+      return a - b;
+    });
+
+    var controls = {};
+    function select(label, options, format) {
+      var wrap = el("label", null, label);
+      var sel = el("select");
+      sel.appendChild(el("option", null, "All"));
+      sel.firstChild.value = "";
+      options.forEach(function (o) {
+        var opt = el("option", null, format ? format(o) : String(o));
+        opt.value = String(o);
+        sel.appendChild(opt);
+      });
+      wrap.appendChild(sel);
+      host.appendChild(wrap);
+      return sel;
+    }
+    if (builders.length > 1) controls.builder = select("Builder", builders);
+    if (communities.length > 1) controls.community = select("Series", communities);
+    if (beds.length > 1) controls.beds = select("Bedrooms", beds);
+    controls.price = select("Max price", [450, 500, 550, 600, 650, 700, 800, 900, 1100, 1500],
+      function (v) { return "under $" + v + "k"; });
+
+    var search = el("label", null, "Search");
+    var input = el("input");
+    input.type = "search";
+    input.placeholder = "plan name or street";
+    input.autocomplete = "off";
+    search.appendChild(input);
+    host.appendChild(search);
+
+    var reset = el("button", "btn", "Reset");
+    reset.type = "button";
+    host.appendChild(reset);
+    var count = el("span", "tiny");
+    host.appendChild(count);
+
+    function apply() {
+      var term = input.value.trim().toLowerCase();
+      var out = rows.filter(function (r, i) {
+        var k = keys[i];
+        if (controls.builder && controls.builder.value && k.builder !== controls.builder.value) {
+          return false;
+        }
+        if (controls.community && controls.community.value &&
+            k.community !== controls.community.value) return false;
+        if (controls.beds && controls.beds.value && String(k.beds) !== controls.beds.value) {
+          return false;
+        }
+        if (controls.price.value && !(k.price && k.price <= +controls.price.value * 1000)) {
+          return false;
+        }
+        return !term || k.text.toLowerCase().indexOf(term) >= 0;
+      });
+      target._draw(out);
+      count.textContent = plain(out.length) + " of " + plain(rows.length);
+    }
+    host.querySelectorAll("select, input").forEach(function (n) {
+      n.addEventListener("input", apply);
+    });
+    reset.addEventListener("click", function () {
+      host.querySelectorAll("select").forEach(function (n) { n.value = ""; });
+      input.value = "";
+      apply();
+    });
+    apply();
+  }
+
+  function unique(values) {
+    var seen = {};
+    var out = [];
+    values.forEach(function (v) {
+      if (v === null || v === undefined || seen[v]) return;
+      seen[v] = true;
+      out.push(v);
+    });
+    return out;
+  }
+
+  // -- sorting ----------------------------------------------------------------------
+
+  document.querySelectorAll("th[data-column]").forEach(function (th) {
+    th.addEventListener("click", function () {
+      var host = th.closest("table");
+      var index = +th.dataset.column;
+      var descending = th.classList.contains("asc");
+      host.querySelectorAll("th[data-column]").forEach(function (o) {
+        o.classList.remove("asc", "desc");
+      });
+      th.classList.add(descending ? "desc" : "asc");
+      var body = host.tBodies[0];
+      var rows = Array.prototype.slice.call(body.rows);
+      rows.sort(function (a, b) {
+        var x = a.cells[index].textContent.trim(), y = b.cells[index].textContent.trim();
+        var nx = +x.replace(/[^0-9.\-]/g, ""), ny = +y.replace(/[^0-9.\-]/g, "");
+        var cmp = (!isNaN(nx) && !isNaN(ny) && x !== "—" && y !== "—")
+          ? nx - ny : x.localeCompare(y);
+        return descending ? -cmp : cmp;
+      });
+      rows.forEach(function (r) { body.appendChild(r); });
+    });
+  });
+})();
+</script>
+</body>
+</html>
