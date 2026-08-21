@@ -200,7 +200,10 @@ button,input,select,textarea{font:inherit;color:inherit}
   .refcard h3 { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 0.7rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--gold); margin: 0 0 0.35rem; display: flex; gap: 0.45rem; align-items: baseline; }
   .refcard h3 .n { color: var(--dim); }
   .refcard ul { margin: 0; padding: 0; list-style: none; font-size: 0.79rem; }
-  .refcard li { padding: 0.26rem 0; border-top: 1px solid var(--edge); line-height: 1.35; }
+  /* Tight by design: this is the densest slide in the deck, and it is the one slide that
+     grows whenever the architecture does. scripts/verify_page.py is what says whether it
+     still fits — at 1280x720 and at 1920x1080, in both themes. */
+  .refcard li { padding: 0.22rem 0; border-top: 1px solid var(--edge); line-height: 1.32; }
   .refcard li:first-child { border-top: none; }
   .refcard .k { color: var(--body); font-weight: 700; }
   .refcard .d { color: var(--quiet); }
@@ -358,12 +361,18 @@ button,input,select,textarea{font:inherit;color:inherit}
     .refcard { padding: 0.5rem 0.68rem 0.55rem; }
     /* Wider measure = fewer wrapped heading lines, which is pure vertical savings. */
     .slide h2 { max-width: 46ch; }
-    .refcard ul { font-size: 0.62rem; }
-    .refcard li { padding: 0.1rem 0; }
-    .refcard h3 { font-size: 0.655rem; }
-    .refcard code { font-size: 0.66rem; }
-    .archlegend { margin-top: 0.25rem; }
-    .refcard { padding-bottom: 0.45rem; }
+    /* The reference cards are the densest slides in the deck and the only ones that grow
+       when the architecture does. Tightened again here rather than by cutting the text: the
+       page has to stay accurate, and per-slide surgery is what a height query exists to
+       avoid (docs/PORTING-THE-REPORTS.md, lesson 14). scripts/verify_page.py is what says
+       whether the budget still balances. */
+    .refcard ul { font-size: 0.59rem; }
+    .refcard li { padding: 0.06rem 0; line-height: 1.25; }
+    .refcard h3 { font-size: 0.645rem; }
+    .refcard code { font-size: 0.645rem; }
+    .archlegend { margin-top: 0.2rem; font-size: 0.655rem; }
+    .refcard { padding: 0.44rem 0.6rem 0.4rem; }
+    .refgrid { gap: 0.42rem; }
     .glossary { gap: 0 0.95rem; }
     .ghead { font-size: 0.575rem; margin-bottom: 0.24rem; padding-bottom: 0.2rem; }
     .grow { font-size: 0.715rem; line-height: 1.3; padding: 0.155rem 0; }
@@ -454,7 +463,7 @@ button,input,select,textarea{font:inherit;color:inherit}
       <p class="eyebrow"><span class="rule"></span>Start here · the big picture</p>
       <h2 style="margin-bottom:0.5rem;">Where everything lives</h2>
       <figure class="bigpic">
-        <svg viewBox="0 0 900 430" role="img" aria-label="A simple map of the system in three places: your computer does the work and keeps the data privately; it asks the internet for home listings and public license records and gets them back; it then publishes the finished map as a private web page that people open with a password.">
+        <svg viewBox="0 0 900 430" role="img" aria-label="A simple map of the system in three places: your computer does the work and keeps the data privately; it asks the internet for home listings and public license records and gets them back; it then publishes finished web pages, most of them password-protected and a named few deliberately open to anyone with the link.">
           <defs>
             <marker id="sp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--gold)"/></marker>
             <marker id="sq" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker>
@@ -487,24 +496,25 @@ button,input,select,textarea{font:inherit;color:inherit}
           </g>
           <text x="520" y="166" font-size="10" fill="var(--quiet)">the tool looks these up — it never sends your data out</text>
 
-          <!-- PRIVATE WEB PAGE -->
+          <!-- THE PUBLISHED PAGES -->
           <rect x="480" y="246" width="386" height="150" rx="12" fill="var(--surface)" stroke="var(--good)" stroke-width="1.6"/>
           <!-- browser glyph -->
           <rect x="502" y="266" width="42" height="30" rx="3" fill="none" stroke="var(--good)" stroke-width="1.5"/>
           <line x1="502" y1="276" x2="544" y2="276" stroke="var(--good)" stroke-width="1.5"/>
           <circle cx="508" cy="271" r="1.6" fill="var(--good)"/><circle cx="514" cy="271" r="1.6" fill="var(--good)"/>
-          <text x="558" y="276" font-size="16" fill="var(--good)" font-weight="700">A PRIVATE WEB PAGE</text>
-          <text x="558" y="292" font-size="10" fill="var(--quiet)" font-style="italic">the finished map, put online</text>
+          <text x="558" y="276" font-size="16" fill="var(--good)" font-weight="700">WEB PAGES, PUT ONLINE</text>
+          <text x="558" y="292" font-size="10" fill="var(--quiet)" font-style="italic">the finished maps and reports</text>
           <g font-size="12" fill="var(--body)">
-            <circle cx="506" cy="322" r="3" fill="var(--good)"/><text x="520" y="326">The day's map and report to look at</text>
-            <circle cx="506" cy="350" r="3" fill="var(--good)"/><text x="520" y="354">Opens only for people with the password</text>
+            <circle cx="506" cy="318" r="3" fill="var(--good)"/><text x="520" y="322">Most need the password — private by default</text>
+            <circle cx="506" cy="342" r="3" fill="var(--good)"/><text x="520" y="346">A named few are open to anyone with the link</text>
+            <circle cx="506" cy="366" r="3" fill="var(--good)"/><text x="520" y="370">Which is which is written down, and tested</text>
           </g>
 
           <!-- YOU / PEOPLE -->
           <circle cx="150" cy="384" r="9" fill="none" stroke="var(--quiet)" stroke-width="1.5"/>
           <path d="M136 404 a14 12 0 0 1 28 0" fill="none" stroke="var(--quiet)" stroke-width="1.5"/>
-          <text x="176" y="392" font-size="12" fill="var(--body)">You &amp; anyone</text>
-          <text x="176" y="407" font-size="12" fill="var(--body)">you invite</text>
+          <text x="176" y="380" font-size="12" fill="var(--body)">You, guests,</text>
+          <text x="176" y="395" font-size="12" fill="var(--body)">and the public</text>
 
           <!-- ARROW 1: computer -> internet (ask) -->
           <line x1="348" y1="188" x2="478" y2="112" stroke="var(--gold)" stroke-width="2" marker-end="url(#sp)"/>
@@ -521,13 +531,14 @@ button,input,select,textarea{font:inherit;color:inherit}
           <text x="413" y="293" text-anchor="middle" font-size="10.5" fill="var(--good)">finished map</text>
 
           <!-- ARROW 3: people -> web page (open) -->
-          <line x1="264" y1="392" x2="478" y2="372" stroke="currentColor" stroke-width="1.8" marker-end="url(#sq)"/>
-          <circle cx="360" cy="378" r="10" fill="var(--code)"/><text x="360" y="382" text-anchor="middle" font-size="11" fill="var(--bg)" font-weight="700">3</text>
-          <text x="360" y="400" text-anchor="middle" font-size="10.5" fill="var(--quiet)">opens it with a password</text>
+          <line x1="292" y1="390" x2="478" y2="372" stroke="currentColor" stroke-width="1.8" marker-end="url(#sq)"/>
+          <circle cx="378" cy="381" r="10" fill="var(--code)"/><text x="378" y="385" text-anchor="middle" font-size="11" fill="var(--bg)" font-weight="700">3</text>
+          <text x="378" y="412" text-anchor="middle" font-size="10.5" fill="var(--quiet)">opens them — password where one is needed</text>
         </svg>
         <p class="bigpic-cap">In one breath: <b>your computer</b> does the work and keeps the data,
-        <b>the internet</b> is only where it looks up listings, and <b>a private web page</b> is the
-        finished map you and the people you invite can open. That's the whole system.</p>
+        <b>the internet</b> is only where it looks up listings, and <b>the published pages</b> are the
+        finished maps and reports — private by default, a named few open, nothing personal on
+        either. That's the whole system.</p>
       </figure>
     </section>
 
@@ -1323,11 +1334,12 @@ button,input,select,textarea{font:inherit;color:inherit}
           <em>29 offline tests.</em></p>
           <p class="lede small">Exactly one change touched the shared core — a backward-compatible
           parameter. When it broke 4 core tests, the suite <em>caught the regression</em>; the agent
-          diagnosed and fixed it, landing back at 411 passing — 412 today, as the suite kept growing.</p>
+          diagnosed and fixed it, landing back at 411 passing — 547 core and 29 annex today, as
+          the suite kept growing.</p>
         </div>
         <div class="tiles" style="grid-template-columns:repeat(2,1fr);">
           <div class="tile"><div class="n">29</div><div class="l">new tests, written alongside the code</div></div>
-          <div class="tile good"><div class="n">411</div><div class="l">core tests, green before &amp; after <span style="color:var(--dim);">(412 today)</span></div></div>
+          <div class="tile good"><div class="n">411</div><div class="l">core tests, green before &amp; after <span style="color:var(--dim);">(547 today)</span></div></div>
           <div class="tile"><div class="n">1</div><div class="l">change to shared code — reversible</div></div>
           <div class="tile alarm"><div class="n">4 &rarr; 0</div><div class="l">self-inflicted breaks, caught &amp; fixed</div></div>
         </div>
@@ -1429,7 +1441,7 @@ button,input,select,textarea{font:inherit;color:inherit}
       <p class="eyebrow"><span class="rule"></span>Reference · how every part talks to every other part</p>
       <h2 style="margin-bottom:0.35rem;">System architecture — the whole machine, end to end</h2>
       <figure style="max-width:73rem;">
-        <svg viewBox="0 0 960 600" role="img" aria-label="Architecture: two local Python packages (propertyfinder core and agentfinder annex) share one httpx client and one local SQLite database. The httpx client makes outbound HTTPS GET calls to SearchApi.io (engines zillow, zillow_property, google, google_maps) which scrapes Zillow and Google, and to the Texas TREC open-data register. The daily command sends an optional SMTP digest. The build_site script copies only report HTML into site/, which deploy.sh pushes to Vercel via the vercel CLI; Vercel serves the static site behind edge Basic Auth, and the viewer's browser then fetches CARTO map tiles and Zillow images at view time. Git push goes to GitHub.">
+        <svg viewBox="0 0 960 600" role="img" aria-label="Architecture: two local Python packages (propertyfinder core and agentfinder annex) share one httpx client and one local SQLite database. The httpx client makes outbound HTTPS GET calls to SearchApi.io (engines zillow, zillow_property, google, google_maps) which scrapes Zillow and Google, and to the Texas TREC open-data register. The daily command sends an optional SMTP digest. The build_site script copies only report HTML into site/, which deploy.sh pushes to Vercel via the vercel CLI and then re-fetches from outside with verify_deploy.py; Vercel serves three declared static projects, with private pages behind edge Basic Auth and manifest-declared public pages exempt, and the viewer's browser then fetches CARTO map tiles and Zillow images at view time. Git push goes to GitHub.">
           <defs>
             <marker id="mC" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker>
             <marker id="mG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--gold)"/></marker>
@@ -1471,15 +1483,16 @@ button,input,select,textarea{font:inherit;color:inherit}
           <text x="174" y="380" text-anchor="middle" font-size="7.5" fill="var(--quiet)">PROPERTYFINDER_DB_PATH · never published</text>
 
           <!-- build + deploy -->
-          <rect x="44" y="398" width="126" height="52" rx="6" fill="var(--surface-2)" stroke="var(--edge)"/>
+          <rect x="44" y="398" width="126" height="56" rx="6" fill="var(--surface-2)" stroke="var(--edge)"/>
           <text x="107" y="415" text-anchor="middle" font-size="8.5" fill="var(--body)" font-weight="700">build_site.py</text>
           <text x="107" y="427" text-anchor="middle" font-size="7" fill="var(--quiet)">+ site-manifest.yaml</text>
           <text x="107" y="438" text-anchor="middle" font-size="7" fill="var(--quiet)">→ site/ · reports/*.html</text>
           <text x="107" y="448" text-anchor="middle" font-size="6.8" fill="var(--alarm)">.env/.db refused</text>
-          <rect x="178" y="398" width="126" height="52" rx="6" fill="var(--surface-2)" stroke="var(--edge)"/>
-          <text x="241" y="415" text-anchor="middle" font-size="8.5" fill="var(--body)" font-weight="700">deploy.sh</text>
-          <text x="241" y="428" text-anchor="middle" font-size="7" fill="var(--quiet)">npx vercel deploy</text>
-          <text x="241" y="438" text-anchor="middle" font-size="7" fill="var(--quiet)">--prod --yes</text>
+          <rect x="178" y="398" width="126" height="56" rx="6" fill="var(--surface-2)" stroke="var(--edge)"/>
+          <text x="241" y="413" text-anchor="middle" font-size="8.5" fill="var(--body)" font-weight="700">deploy.sh</text>
+          <text x="241" y="424" text-anchor="middle" font-size="7" fill="var(--quiet)">heartbeat stale? warn</text>
+          <text x="241" y="434" text-anchor="middle" font-size="7" fill="var(--quiet)">npx vercel deploy --prod</text>
+          <text x="241" y="444" text-anchor="middle" font-size="6.8" fill="var(--good)">then verify_deploy.py</text>
 
           <!-- internal arrows -->
           <line x1="96" y1="134" x2="96" y2="120" stroke="currentColor" stroke-width="1.2" marker-end="url(#mC)" opacity="0.7"/>
@@ -1532,17 +1545,18 @@ button,input,select,textarea{font:inherit;color:inherit}
           <text x="342" y="343" text-anchor="middle" font-size="6.8" fill="var(--quiet)">git push</text>
 
           <!-- PUBLISH & VIEW column -->
-          <rect x="668" y="150" width="278" height="96" rx="6" fill="var(--surface)" stroke="var(--good)"/>
+          <rect x="668" y="150" width="278" height="109" rx="6" fill="var(--surface)" stroke="var(--good)"/>
           <text x="678" y="168" font-size="10" fill="var(--good)" font-weight="700">Vercel — static host + Edge Middleware</text>
-          <text x="678" y="182" font-size="7.6" fill="var(--quiet)">serves site/ only · no Python runs here</text>
+          <text x="678" y="182" font-size="7.6" fill="var(--quiet)">3 declared projects · serves static files · no Python here</text>
           <text x="678" y="196" font-size="7.6" fill="var(--body)">edge Basic Auth: SITE_USER (def admin) / SITE_PASSWORD</text>
-          <text x="678" y="209" font-size="7.6" fill="var(--alarm)">unset SITE_PASSWORD ⇒ fail-closed 401 on every path</text>
-          <text x="678" y="222" font-size="7.6" fill="var(--quiet)">deploy token: VERCEL_TOKEN · site/vercel.json headers</text>
-          <text x="678" y="235" font-size="7.6" fill="var(--quiet)">X-Robots-Tag noindex · cleanUrls · immutable archives</text>
+          <text x="678" y="209" font-size="7.6" fill="var(--alarm)">unset SITE_PASSWORD ⇒ fail-closed 401 on private paths</text>
+          <text x="678" y="222" font-size="7.6" fill="var(--body)">manifest "public" pages bypass auth by design · noindex</text>
+          <text x="678" y="235" font-size="7.6" fill="var(--quiet)">deploy token: VERCEL_TOKEN · site/vercel.json headers</text>
+          <text x="678" y="248" font-size="7.6" fill="var(--quiet)">cleanUrls · immutable dated archives</text>
 
-          <rect x="668" y="258" width="278" height="50" rx="6" fill="var(--surface-2)" stroke="var(--edge)"/>
-          <text x="807" y="278" text-anchor="middle" font-size="9.5" fill="var(--body)" font-weight="700">Viewer's browser</text>
-          <text x="807" y="291" text-anchor="middle" font-size="7.5" fill="var(--quiet)">opens the published report (after Basic-Auth prompt)</text>
+          <rect x="668" y="270" width="278" height="42" rx="6" fill="var(--surface-2)" stroke="var(--edge)"/>
+          <text x="807" y="287" text-anchor="middle" font-size="9.5" fill="var(--body)" font-weight="700">Viewer's browser</text>
+          <text x="807" y="300" text-anchor="middle" font-size="7.5" fill="var(--quiet)">private pages prompt for a password; public ones do not</text>
 
           <rect x="668" y="320" width="278" height="118" rx="6" fill="var(--surface)" stroke="var(--gold-soft)"/>
           <text x="678" y="338" font-size="9" fill="var(--gold)" font-weight="700">…then the PAGE fetches at view time:</text>
@@ -1601,7 +1615,7 @@ button,input,select,textarea{font:inherit;color:inherit}
             <li><code>PROPERTYFINDER_DB_PATH</code> <span class="d">(aliases <code>PROPERTYWATCH_DB_PATH</code>, <code>db_path</code>) — SQLite location.</span></li>
             <li><code>SMTP_HOST · SMTP_PORT</code>(587)<code> · SMTP_TLS · SMTP_USERNAME · SMTP_PASSWORD</code></li>
             <li><code>ALERT_EMAIL_FROM · ALERT_EMAIL_TO</code> <span class="d">— digest sender / recipients.</span></li>
-            <li><code>SITE_PASSWORD</code> <span class="warn">(unset ⇒ fail-closed 401)</span><code> · SITE_USER</code> <span class="d">(default admin) — Vercel edge Basic Auth.</span></li>
+            <li><code>SITE_PASSWORD</code> <span class="warn">(unset ⇒ fail-closed 401 on private paths)</span><code> · SITE_USER</code> <span class="d">(default admin) — Vercel edge Basic Auth. Manifest <code>public</code> paths are exempt by design.</span></li>
             <li><code>VERCEL_TOKEN</code> <span class="d">(headless deploy) · <code>VERCEL_ORG_ID</code>/<code>VERCEL_PROJECT_ID</code> (CI, aspirational).</span></li>
             <li><span class="k">Secrets</span> <span class="d">— kept in a local <code>.env</code>, gitignored and never in git history. Nothing secret is ever published: the build copies only <code>reports/*.html</code> and refuses <code>.env</code>/<code>.db</code>.</span></li>
           </ul>
@@ -1613,22 +1627,22 @@ button,input,select,textarea{font:inherit;color:inherit}
             <li><span class="k">agentfinder (annex)</span> <span class="d">— depends on core; <code>httpx · pydantic · sqlalchemy · pyyaml</code>; no stats.</span></li>
             <li><span class="k">httpx seam + CallBudget</span> <span class="d">— sole outbound path; 0.35s delay; BudgetExceeded before over-spend; injected so tests are offline.</span></li>
             <li><span class="k">SQLite <code>propertyfinder.db</code></span> <span class="d">— one shared local file; WAL; FK on; migrations core <b>1–99</b>, annex <b>100+</b>, one schema_version. No other datastore.</span></li>
-            <li><span class="k">Config (YAML, versioned)</span> <span class="d"><code>watch-config.yaml</code>, annex <code>agent-config.yaml</code>, <code>site-manifest.yaml</code>, <code>propertyfinder/data/*.yaml</code>.</span></li>
+            <li><span class="k">Config (YAML, versioned)</span> <span class="d"><code>watch-config.yaml</code>, annex <code>agent-config.yaml</code>, three publish manifests (<code>site-manifest.yaml</code> + one each for this deck and the annex), <code>propertyfinder/data/*.yaml</code> — the researched builder roster and the curated research, which builds read and never write.</span></li>
           </ul>
         </div>
         <div class="refcard">
           <h3><span class="n">D</span> CLI entry points &amp; publish path</h3>
           <ul>
-            <li><span class="k">propertyfinder</span> <span class="d">— <code>init · watches · sweep · report · map · predictions · enrich · daily</code>. Only sweep/enrich/daily build a real client + spend budget.</span></li>
+            <li><span class="k">propertyfinder</span> <span class="d">— <code>init · watches · sweep · report · map · predictions · enrich · daily</code>. Only sweep/enrich/daily build a real client + spend budget. <code>report --kind map|table|newcon</code>; <code>--public</code> renders neutral finance under a <code>-public</code> name.</span></li>
             <li><span class="k">agentfinder</span> <span class="d">— <code>init · sweep · resolve · report</code>. Only sweep/resolve call the network; resolve is the one that hits google + TREC.</span></li>
-            <li><span class="k">Publish</span> <span class="d"><code>build_site.py</code> reads <code>site-manifest.yaml</code> → copies <b>only</b> <code>reports/*.html</code> into <code>site/</code> (refuses <code>.env</code>/<code>.db</code>), generates <code>index.html · vercel.json · middleware.js</code>.</span></li>
-            <li><span class="k">Deploy</span> <span class="d"><code>deploy.sh</code> → build → <code>npx vercel deploy --prod --yes --cwd site</code>. Chained by <code>daily --deploy</code>.</span></li>
+            <li><span class="k">Publish</span> <span class="d"><code>build_site.py</code> reads <code>site-manifest.yaml</code> → copies <b>only</b> <code>reports/*.html</code> into <code>site/</code> (refuses <code>.env</code>/<code>.db</code>), generates <code>index.html · vercel.json · middleware.js</code>. Pages marked <code>public</code> skip the password, are sent <code>noindex</code>, and are audited for anything beyond market assumptions.</span></li>
+            <li><span class="k">Deploy — 3 declared targets</span> <span class="d"><code>deploy.sh</code> (reports) · <code>--cwd site-talk</code> (this deck) · <code>publish_ledger.sh</code> (ledger); <code>daily --deploy</code> chains the first. Before: <code>verify_page.py</code> renders the page in headless Chrome (leaked placeholders, counts vs. payload, overflow at 1280×720, both themes, JS errors). After: <code>verify_deploy.py</code> re-fetches the production alias as a visitor. <code>daily</code> stamps <code>reports/.last-daily</code> and <code>deploy.sh</code> warns when it is stale.</span></li>
             <li><span class="k">Never leaves the machine</span> <span class="d">— <code>.env</code>, <code>propertyfinder.db</code>, all Python, the full history. Only built HTML is published.</span></li>
           </ul>
         </div>
       </div>
       <div class="archlegend">
-        <span>Two Python packages · one httpx seam · one SQLite file · one paid API (SearchApi) · one free API (TREC) · optional SMTP · Vercel static host · GitHub origin · CARTO + Zillow fetched only by the viewer.</span>
+        <span>Two Python packages · one httpx seam · one SQLite file · one paid API (SearchApi) · one free API (TREC) · optional SMTP · three declared Vercel projects · GitHub origin · CARTO + Zillow fetched only by the viewer.</span>
       </div>
     </section>
 
