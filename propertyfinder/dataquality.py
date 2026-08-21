@@ -183,6 +183,33 @@ def plan_sqft_ranges() -> Mapping[str, dict]:
     return _load("plan-sqft-ranges.yaml", "ranges")
 
 
+@lru_cache(maxsize=None)
+def curated(filename: str) -> Mapping[str, dict]:
+    """A whole curated-research file, read-only, keyed by its own top-level blocks.
+
+    Unlike the correction files this module's other loaders read, a curated file is not a
+    lookup table — it is hand-written prose, tables and profiles that a page renders more or
+    less as they stand. So it comes back whole, and the payload builder decides what to do
+    with it. What this loader enforces is the one rule that makes such a file reviewable:
+    every block carries `provenance`, with a source, the date it was read, and what would
+    make it stale. A block without that is tribal knowledge in a YAML costume.
+    """
+    path = DATA_DIR / filename
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} is missing — the curated blocks of a report are versioned data, not "
+            "something a build can regenerate"
+        )
+    raw = yaml.safe_load(path.read_text()) or {}
+    missing = sorted(k for k, v in raw.items() if not (isinstance(v, dict) and v.get("provenance")))
+    if missing:
+        raise ValueError(
+            f"{path}: block(s) {missing} carry no `provenance` — a curated block needs a "
+            "source, the date it was read, and what would make it stale"
+        )
+    return MappingProxyType({str(k): v for k, v in raw.items()})
+
+
 def _load(filename: str, section: str) -> Mapping[str, dict]:
     path = DATA_DIR / filename
     if not path.exists():  # a deployment with no corrections yet is not an error
